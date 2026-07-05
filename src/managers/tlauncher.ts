@@ -147,8 +147,9 @@ export default class Tlauncher {
   }
 
   static async setupServerVersion(sourceVersion: string, serverName: string) {
-    const loader = UI.loader("Setting up server version...");
     await tryCatch(async () => {
+      const loader = UI.loader("Setting up server version...");
+
       const srcDir = join(VERSIONS_DIR, sourceVersion);
       const dstDir = join(VERSIONS_DIR, serverName);
 
@@ -174,7 +175,9 @@ export default class Tlauncher {
         if (json[key] !== undefined) json[key] = serverName;
       }
       await writeFile(jsonFile, JSON.stringify(json, null, 2), "utf8");
+
+      await writeFile(join(dstDir, "pseudo-server-version"), "", "utf8");
+      loader.stop();
     }, `Failed to setup server version for "${serverName}"`);
-    loader.stop();
   }
 }

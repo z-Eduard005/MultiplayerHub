@@ -1,5 +1,5 @@
 import { join, basename, normalize } from "path";
-import { copyFile, readFile, writeFile, mkdir, rename, rm } from "fs/promises";
+import { copyFile, readFile, writeFile, mkdir, rename, rm, readdir } from "fs/promises";
 import {
   IS_WIN32,
   DESKTOP_DIR,
@@ -174,6 +174,15 @@ export default class App {
     }
     if (filtered.length !== instances.length) {
       await App.putConfig(CONFIG_FILE, { instances: filtered });
+    }
+
+    const versionEntries = await readdir(VERSIONS_DIR, { withFileTypes: true });
+    for (const entry of versionEntries) {
+      if (!entry.isDirectory() || filtered.some(i => i.name === entry.name)) continue;
+
+      if (await exists(join(VERSIONS_DIR, entry.name, "pseudo-server-version"))) {
+        await rm(join(VERSIONS_DIR, entry.name), { recursive: true, force: true });
+      }
     }
   }
 

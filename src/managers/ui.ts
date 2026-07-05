@@ -194,7 +194,7 @@ export default class UI {
         });
       }
       if (desc) {
-        const lines = desc.includes("\n") ? desc.split("\n") : UI.wrap(desc, TITLE_WIDTH);
+        const lines = UI.wrap(desc, TITLE_WIDTH);
         lines.forEach((l) => {
           const indent = " ".repeat(Math.max(0, Math.floor((UI.cols() - TITLE_WIDTH) / 2)));
           contentLines.push(`${indent}\x1B[2m${l}\x1B[22m`);

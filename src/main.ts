@@ -65,6 +65,68 @@ tryCatch(
       });
     };
 
+    const instanceEntryUi = async (serverName: string) => {
+      while (true) {
+        const { value, cancelled } = await UI.list(
+          [
+            "/ Launch Instance",
+            "_ Copy Invite string",
+            "* Change Memory allocation",
+          ],
+          {
+            title: `Server Instance "${serverName}"`,
+            desc: `\nYou can add mods and configs by just placing them in:\n"${join(GAME_DIR, "home", serverName)}"`
+          }
+        );
+        if (value === "_ Copy Invite string") {
+          const cfg = await App.getConfig(CONFIG_FILE);
+          const instances = (cfg["instances"] as Instance[]) ?? [];
+          const inst = instances.find(i => i.name === serverName);
+          if (inst?.inviteString) await App.copyToClipboard(inst.inviteString);
+        }
+        if (value === "* Change Memory allocation") {
+          await UI.input({
+            title: "Memory allocation",
+            desc: `Enter amount of RAM in MB\nMinimum: 2700MB | Maximum: 7168MB`,
+            defaultValue: String(Java.ram),
+          });
+        }
+        if (value === "/ Launch Instance") {
+          await runInstance();
+          break;
+        }
+        if (cancelled) break;
+      }
+    };
+
+    const chooseServerFlow = async () => {
+      while (true) {
+        const config = await App.getConfig(CONFIG_FILE);
+        const instances = ((config["instances"] as Instance[]) ?? []);
+        if (instances.length === 0) return;
+
+        const { value, cancelled } = await UI.list(
+          instances.map(i => {
+            const item: ListItem = { label: i.name };
+            if (i.state !== "ready") {
+              item.badge = "Not Ready";
+            } else if (i.owner === "me") {
+              item.badge = "★";
+              item.badgeColor = "green";
+            } else {
+              item.badge = `☆ ${i.owner}`;
+              item.badgeColor = "yellow";
+            }
+            return item;
+          }),
+          { title: "Choose Server", desc: "Select an instance to play on" }
+        );
+
+        if (cancelled) return;
+        await instanceEntryUi(value);
+      }
+    };
+
     const settingsAction = async () => {
       while (true) {
         const { value, cancelled } = await UI.list(
@@ -98,9 +160,9 @@ tryCatch(
 
     while (true) {
       const { value, cancelled, index } = await UI.list([
-        "> Create Server Instance",
         "= Choose Server",
-        "+ Add New Server (Connect)",
+        "> Create Server Instance",
+        "+ Add New Server",
       ], {
         title: UI.START_ART,
         backText: "Exit",
@@ -111,6 +173,11 @@ tryCatch(
       mainOptionIndex = index;
 
       if (cancelled) await Process.stop();
+
+      if (value === "= Choose Server") {
+        await chooseServerFlow();
+        continue;
+      }
 
       if (value === "> Create Server Instance") {
         let lastTlauncherLaunch = 0;
@@ -191,61 +258,17 @@ tryCatch(
           }
         }
         if (step === 4) {
-          let launch = false;
-          while (true) {
-            const { value, cancelled } = await UI.list(
-              ["Copy Invite string", "Launch Instance", "Back to Main Menu"],
-              {
-                title: `Server Instance "${serverName}" created`,
-                desc: `\nYou can add mods and configs by just placing them in: ${join(GAME_DIR, "home", serverName)}`
-              }
-            );
-            if (cancelled || value === "Back to Main Menu") break;
-            if (value === "Copy Invite string") {
-              const config = await App.getConfig(CONFIG_FILE);
-              const instances = (config["instances"] as Instance[]) ?? [];
-              const inst = instances.find(i => i.name === serverName);
-              if (inst?.inviteString) await App.copyToClipboard(inst.inviteString);
-            }
-            if (value === "Launch Instance") { launch = true; break; }
-          }
-          if (launch) break;
+          await instanceEntryUi(serverName);
+          await chooseServerFlow();
           continue;
         }
 
         if (step < 4) continue;
       }
-
-      if (value === "= Choose Server") {
-        const config = await App.getConfig(CONFIG_FILE);
-        const instances = ((config["instances"] as Instance[]) ?? []);
-        if (instances.length === 0) continue;
-
-        const { value, cancelled } = await UI.list(
-          instances.map(i => {
-            const item: ListItem = { label: i.name };
-            if (i.state !== "ready") {
-              item.badge = "Not Ready";
-            } else if (i.owner === "me") {
-              item.badge = "★";
-              item.badgeColor = "green";
-            } else {
-              item.badge = `☆ ${i.owner}`;
-              item.badgeColor = "yellow";
-            }
-            return item;
-          }),
-          { title: "Choose Server", desc: "Select an instance to play on" }
-        );
-        console.log(value);
-
-        if (cancelled) continue;
+      if (value === "+ Add New Server") {
         continue;
-      }
-      if (value === "+ Add New Server (Connect)") continue;
+      };
     }
-
-    await runInstance();
   },
   async (err) => {
     UI.restoreMainScreen();
