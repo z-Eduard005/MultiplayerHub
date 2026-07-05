@@ -8,7 +8,7 @@ import { spawn } from "child_process";
 
 export default class Tlauncher {
   private static readonly PROPS_FILE = join(MC_DIR, "tl.properties");
-  private static readonly PROPS_VERSION_ENTRY = "pseudo-server=V1";
+  private static readonly PROPS_VERSION_ENTRY = "multiplayerhub=V1";
   private static readonly FILENAME = IS_WIN32 ? "LL.exe" : "LL.sh";
   private static readonly FILE = join(MC_DIR, Tlauncher.FILENAME);
   private static readonly INSTALLER_URL = "https://dl.llaun.ch/legacy/installer";
@@ -176,7 +176,7 @@ export default class Tlauncher {
       }
       await writeFile(jsonFile, JSON.stringify(json, null, 2), "utf8");
 
-      await writeFile(join(dstDir, "pseudo-server-version"), "", "utf8");
+      await writeFile(join(dstDir, "multiplayerhub-version"), "", "utf8");
       loader.stop();
     }, `Failed to setup server version for "${serverName}"`);
   }

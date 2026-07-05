@@ -1,15 +1,15 @@
 {
-  "name": "pseudo-server",
+  "name": "multiplayerhub",
   "version": "0.0.27",
   "author": "z-Eduard005",
   "license": "ISC",
   "description": "A decentralized Minecraft server provisioning program. No dedicated host required — first to run becomes host, others auto-join.",
   "scripts": {
     "ts-handle": "tsup src/main.ts --format cjs --target node18 --out-dir build --treeshake --minify",
-    "pkg-handle": "pkg build/main.js -o build/Pseudo-Server.exe -t node18-win-x64 && pkg build/main.js -o build/Pseudo-Server -t node18-linux-x64 && chmod +x build/Pseudo-Server",
+    "pkg-handle": "pkg build/main.js -o build/MultiplayerHub.exe -t node18-win-x64 && pkg build/main.js -o build/MultiplayerHub -t node18-linux-x64 && chmod +x build/MultiplayerHub",
     "build": "npm run ts-handle && npm run pkg-handle",
     "release": "node scripts/bump-version.js && npm run build && node scripts/release.js",
-    "test": "npm run build && cp build/Pseudo-Server ~/Downloads/Pseudo-Server && ~/Downloads/Pseudo-Server"
+    "test": "npm run build && cp build/MultiplayerHub ~/Downloads/MultiplayerHub && ~/Downloads/MultiplayerHub"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

@@ -14,7 +14,7 @@ if (!match) {
 
 const version = match[1];
 execSync(
-  `gh release create v${version} build/Pseudo-Server.exe build/Pseudo-Server --title "v${version}" --notes ""`,
+  `gh release create v${version} build/MultiplayerHub.exe build/MultiplayerHub --title "v${version}" --notes ""`,
   { stdio: "inherit" },
 );
 

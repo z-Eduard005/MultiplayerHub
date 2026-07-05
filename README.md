@@ -1,4 +1,4 @@
-# Pseudo-Server
+# MultiplayerHub
 
 A decentralized Minecraft server provisioning tool. No dedicated host required — the first player to run the binary becomes host, others auto-join, and if the host drops, someone else takes over.
 

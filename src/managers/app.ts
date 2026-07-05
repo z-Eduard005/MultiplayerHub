@@ -38,8 +38,8 @@ export type Instance = {
 
 export default class App {
   private static readonly VERSION = "0.0.27";
-  private static readonly RELEASE_URL = "https://api.github.com/repos/z-Eduard005/pseudo-server/releases/latest"
-  private static readonly RAW_GITHUB_URL = "https://raw.githubusercontent.com/z-Eduard005/pseudo-server/main";
+  private static readonly RELEASE_URL = "https://api.github.com/repos/z-Eduard005/MultiplayerHub/releases/latest"
+  private static readonly RAW_GITHUB_URL = "https://raw.githubusercontent.com/z-Eduard005/MultiplayerHub/main";
   private static readonly FILE = join(APP_DIR, IS_WIN32 ? APP_NAME + ".exe" : APP_NAME);
   private static readonly ICON_FILE = join(APP_DIR, IS_WIN32 ? "icon.ico" : "icon.png");
   private static readonly SHORTCUT_FILE = join(APP_DIR, `${APP_NAME}.lnk`);
@@ -180,7 +180,7 @@ export default class App {
     for (const entry of versionEntries) {
       if (!entry.isDirectory() || filtered.some(i => i.name === entry.name)) continue;
 
-      if (await exists(join(VERSIONS_DIR, entry.name, "pseudo-server-version"))) {
+      if (await exists(join(VERSIONS_DIR, entry.name, "multiplayerhub-version"))) {
         await rm(join(VERSIONS_DIR, entry.name), { recursive: true, force: true });
       }
     }
@@ -207,7 +207,7 @@ export default class App {
     await GH.auth();
 
     if (config["installed"] !== true) {
-      log("Pseudo-Server successfully installed :)", "success");
+      log("MultiplayerHub successfully installed :)", "success");
       await App.putConfig(CONFIG_FILE, { installed: true });
     }
 

@@ -40,7 +40,7 @@ export default class Process {
       for (const pid of pids) {
         await run(IS_WIN32 ? `taskkill /F /PID ${pid} & ver>nul` : `kill -9 ${pid} || true`);
       }
-    }, "Failed to kill previous Pseudo-Server instance");
+    }, "Failed to kill previous MultiplayerHub instance");
   }
 
   private static async ensureAdmin() {

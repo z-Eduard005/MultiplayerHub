@@ -100,7 +100,7 @@ export default class GH {
     const owner = await GH.getOwner();
     await tryCatch(
       () => run(
-        `gh api repos/${owner}/${repo}/keys -X POST -f title="pseudo-${repo}" -f key="${pubKey}" -f read_only=false`,
+        `gh api repos/${owner}/${repo}/keys -X POST -f title="MultiplayerHub-${repo}" -f key="${pubKey}" -f read_only=false`,
         { inherit: true }
       ),
       `Failed to add deploy key to ${owner}/${repo}`
