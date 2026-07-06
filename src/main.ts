@@ -1,4 +1,6 @@
 import { existsSync } from "fs";
+import { join } from "path";
+import { CONFIG_FILE, GAME_DIR } from "./constants";
 import { log, tryCatch, throwErr, color } from "./utils";
 import UI, { type ListItem } from "./managers/ui";
 import Zerotier from "./managers/zerotier";
@@ -8,8 +10,6 @@ import Tlauncher from "./managers/tlauncher";
 import Process from "./managers/process";
 import Hosting from "./managers/hosting";
 import App, { type Instance } from "./managers/app";
-import { CONFIG_FILE, GAME_DIR } from "./constants";
-import { join } from "path";
 
 tryCatch(
   async () => {
@@ -19,63 +19,104 @@ tryCatch(
     let mainOptionIndex = 0;
     Zerotier.ip = Zerotier.getIP();
 
-    const runInstance = async () => {
-      UI.restoreMainScreen();
+    let instanceError: string | null = null;
 
-      Java.getRam();
+    const runInstance = async (serverName: string) => {
+      await tryCatch(async () => {
+        const config = await App.getConfig(CONFIG_FILE);
+        const ztNetworkId = config["zerotierID"] as string;
+        const instances = (config["instances"] as Instance[]) ?? [];
+        const instance = instances.find(i => i.name === serverName);
+        if (!instance) return;
 
-      await Tlauncher.checkAccountType();
+        UI.restoreMainScreen();
 
-      await Zerotier.start();
-      await Zerotier.join("TEST");
+        Java.getRam();
 
-      await Tlauncher.chooseVersion("TEST");
-      await Tlauncher.open();
+        await Zerotier.start();
+        await Zerotier.join(ztNetworkId);
 
-      await Hosting.startMonitoring();
+        await Tlauncher.chooseVersion(instance.version);
+        await Tlauncher.open();
 
-      // await Git.worldInit();
+        await Hosting.startMonitoring(serverName);
 
-      await Java.generateServerSettings(Zerotier.ip!, "TEST");
-      await Java.start("TEST");
+        // await Git.serverFetch();
+        // await Git.worldSync();
 
-      Java.process?.on("error", async (err) => {
-        throwErr(`Error starting Java server. Check path to Java: ${Java.getJavaPath("TEST")}\n${err}`);
-      });
-      Java.process?.on("close", async (code) => {
-        if (code !== 0) {
-          throwErr(`Server terminated with an error (code: ${code})`);
+        const adminName = await Tlauncher.getAccountName();
+        await Java.generateServerSettings(Zerotier.ip!, serverName);
+        await Java.start(serverName);
+
+        Java.process?.on("error", async (err) => {
+          throwErr(`Error starting Java server. Check path to Java: ${Java.getJavaPath(instance.version)}\n${err}`);
+        });
+        Java.process?.on("close", async (code) => {
+          if (code !== 0) {
+            throwErr(`Server terminated with an error (code: ${code})`);
+          }
+        });
+        Java.process?.stdout.on("data", async (data) => {
+          process.stdout.write(data);
+
+          if (data.includes(`${adminName} joined the game`)) {
+            Java.runMCCommand(`op ${adminName}`);
+          }
+
+          if (data.includes("Unloading dimension 1")) {
+            log(`You have started the server on port: ${Zerotier.ip}:${Java.PORT}\nHave fun playing :)`, "success");
+
+            Git.worldEnableRepeatedPush(serverName, "TEST");
+          }
+        });
+      }, async (err) => {
+        instanceError = err;
+
+        await Java.kill();
+
+        Git.worldDisableRepeatedPush();
+        if (Hosting.ip === Zerotier.ip && Git.worldInitialized) {
+          await tryCatch(
+            () => Git.syncWorld(serverName, "TEST"),
+            err => log(err, "error")
+          );
         }
-        await Process.stop("Server successfully stopped");
-      });
-      Java.process?.stdout.on("data", async (data) => {
-        process.stdout.write(data);
+        Hosting.disableKeepAlive();
 
-        const ADMIN_NAME = "TEST";
-
-        if (data.includes(`${ADMIN_NAME} joined the game`)) {
-          Java.runMCCommand(`op ${ADMIN_NAME}`);
-        }
-
-        if (data.includes("Unloading dimension 1")) {
-          log(`You have started the server on port: ${Zerotier.ip}:${Java.PORT}\nHave fun playing :)`, "success");
-
-          Git.worldEnableRepeatedPush();
-        }
+        const cfg = await App.getConfig(CONFIG_FILE);
+        await Zerotier.leave(cfg["zerotierID"] as string);
       });
     };
 
     const instanceEntryUi = async (serverName: string) => {
       while (true) {
+        let wasValid = await Tlauncher.isValidAccount();
+
         const { value, cancelled } = await UI.list(
           [
-            "/ Launch Instance",
+            { label: "/ Launch Instance", blocked: !wasValid },
             "_ Copy Invite string",
             "* Change Memory allocation",
           ],
           {
             title: `Server Instance "${serverName}"`,
-            desc: `\nYou can add mods and configs by just placing them in:\n"${join(GAME_DIR, "home", serverName)}"`
+            desc: `\nYou can add mods and configs by just placing them in:\n"${join(GAME_DIR, "home", serverName)}"`,
+            refresh: async () => {
+              if (instanceError) {
+                log(instanceError, "error");
+                instanceError = null;
+              }
+              const valid = await Tlauncher.isValidAccount();
+              if (!valid && wasValid) {
+                log("You should choose microsoft or ely.by account in tlauncher for plaing!", "warning");
+              }
+              wasValid = valid;
+              return [
+                { label: "/ Launch Instance", blocked: !valid },
+                "_ Copy Invite string",
+                "* Change Memory allocation",
+              ];
+            },
           }
         );
         if (value === "_ Copy Invite string") {
@@ -92,8 +133,8 @@ tryCatch(
           });
         }
         if (value === "/ Launch Instance") {
-          await runInstance();
-          break;
+          await runInstance(serverName);
+          if (!instanceError) break;
         }
         if (cancelled) break;
       }

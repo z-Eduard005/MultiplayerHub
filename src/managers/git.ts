@@ -7,7 +7,6 @@ import App, { type Instance } from "./app";
 
 export default class Git {
   private static readonly PUSH_INTERVAL_MS = 30 * 60 * 1000;
-  private static readonly REPO_URL = "TEST"
 
   static worldInitialized = false;
   static nodeWorldPushInterval: NodeJS.Timeout;
@@ -99,9 +98,9 @@ export default class Git {
     }, "Error during world directory initialization");
   }
 
-  static worldEnableRepeatedPush() {
+  static worldEnableRepeatedPush(serverName: string, repoUrl: string) {
     Git.nodeWorldPushInterval = setInterval(async () => {
-      await Git.pushWorld();
+      await Git.pushWorld(serverName, repoUrl);
       log("The world has been sent to the cloud", "warning");
     }, Git.PUSH_INTERVAL_MS);
   }
@@ -110,59 +109,60 @@ export default class Git {
     clearInterval(Git.nodeWorldPushInterval)
   }
 
-  static async pushWorld() {
+  static async pushWorld(serverName: string, repoUrl: string) {
     await tryCatch(async () => {
+      const worldDir = join(INSTANCES_DIR, serverName, "server", "world");
       await run(
         [
           "git add -A",
           `git commit -m "${USER_NAME + randomNum(6)}-update"`,
-          `git push -f ${Git.REPO_URL} --all`,
+          `git push -f ${repoUrl} --all`,
         ],
-        { inherit: true, cwd: Git.WORLD_DIR }
+        { inherit: true, cwd: worldDir }
       );
     }, "Error sending world to the cloud (check your internet)");
   };
 
-  static async syncWorld() {
+  static async syncWorld(serverName: string, repoUrl: string) {
+    const worldDir = join(INSTANCES_DIR, serverName, "server", "world");
     log("World synchronization...", "info");
     await tryCatch(async () => {
-      await run(`git -c credential.helper= fetch --depth 1 ${Git.REPO_URL}`, {
+      await run(`git -c credential.helper= fetch --depth 1 ${repoUrl}`, {
         inherit: true,
-        cwd: Git.WORLD_DIR,
+        cwd: worldDir,
       });
-      const unstagedChanges = await run("git status --porcelain", { cwd: Git.WORLD_DIR });
+      const unstagedChanges = await run("git status --porcelain", { cwd: repoUrl });
       const [localHead, remoteHead] = await run(
         ["git rev-parse HEAD", "git rev-parse FETCH_HEAD"],
-        { cwd: Git.WORLD_DIR }
+        { cwd: worldDir }
       );
 
       if (unstagedChanges.length !== 0 && localHead === remoteHead) {
-        await Git.pushWorld();
+        await Git.pushWorld(serverName, repoUrl);
       } else {
-        await run("git reset --hard FETCH_HEAD", { inherit: true, cwd: Git.WORLD_DIR });
+        await run("git reset --hard FETCH_HEAD", { inherit: true, cwd: worldDir });
       }
     }, "Failed world synchronization");
   };
 
-  static async fetchServer(_repoUrl: string, deployKeyPath: string) {
+  static async fetchServer(serverName: string, deployKeyPath: string) {
+    const serverDir = join(INSTANCES_DIR, serverName, "server");
     log("Server synchronization...", "info");
     await tryCatch(async () => {
       const posixPath = deployKeyPath.replace(/\\/g, "/");
       process.env['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -i ${posixPath}`;
-      if (!(await exists(Git.SERVER_DIR))) {
-        // TODO
-      }
       await run(
         [
           "git fetch --depth 1 origin server",
           "git reset --hard origin/server",
         ],
-        { inherit: true, cwd: Git.SERVER_DIR }
+        { inherit: true, cwd: serverDir }
       );
     }, "Failed server synchronization");
   }
 
-  static async pushServer(_repoUrl: string, deployKeyPath: string) {
+  static async pushServer(serverName: string, deployKeyPath: string) {
+    const serverDir = join(INSTANCES_DIR, serverName, "server");
     const posixPath = deployKeyPath.replace(/\\/g, "/");
     await tryCatch(async () => {
       process.env['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -i ${posixPath}`;
@@ -172,7 +172,7 @@ export default class Git {
           'git commit --amend -m "snapshot"',
           "git push --force origin server",
         ],
-        { inherit: true, cwd: Git.SERVER_DIR }
+        { inherit: true, cwd: serverDir }
       );
     }, "Failed to push server updates");
   }

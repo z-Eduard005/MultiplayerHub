@@ -1,9 +1,9 @@
 {
   "name": "multiplayerhub",
-  "version": "0.0.27",
+  "version": "0.0.28",
   "author": "z-Eduard005",
   "license": "ISC",
-  "description": "A decentralized Minecraft server provisioning program. No dedicated host required — first to run becomes host, others auto-join.",
+  "description": "MultiplayerHub - free, decentralized Minecraft server provisioning program, that uses p2p networking and automatic host election to eliminate the need for dedicated server infrastructure.",
   "scripts": {
     "ts-handle": "tsup src/main.ts --format cjs --target node18 --out-dir build --treeshake --minify",
     "pkg-handle": "pkg build/main.js -o build/MultiplayerHub.exe -t node18-win-x64 && pkg build/main.js -o build/MultiplayerHub -t node18-linux-x64 && chmod +x build/MultiplayerHub",

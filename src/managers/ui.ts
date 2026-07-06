@@ -44,9 +44,13 @@ export default class UI {
   private static readonly FG = "\x1B[38;5;255m";
   private static readonly RST = "\x1B[39m\x1B[49m";
   private static readonly LOADER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-  static readonly START_ART = `┏━┓┏━┓┏━╸╻ ╻╺┳┓┏━┓   ┏━┓┏━╸┏━┓╻ ╻┏━╸┏━┓
-┣━┛┗━┓┣╸ ┃ ┃ ┃┃┃ ┃╺━╸┗━┓┣╸ ┣┳┛┃┏┛┣╸ ┣┳┛
-╹  ┗━┛┗━╸┗━┛╺┻┛┗━┛   ┗━┛┗━╸╹┗╸┗┛ ┗━╸╹┗╸\n`;
+  static readonly START_ART = `╔═╦═╗     ╗  ╦        ╗                 ╦  ╦     ╦  
+║ ║ ║     ║  ║  o     ║                 ║  ║     ║  
+║ ║ ║ ╦ ╦ ║ ═╬═ ╦ ╔═╗ ║ ╔═╗ ╦ ╦ ╔═╗ ╦═╗ ╠══╣ ╦ ╦ ╠═╗
+║ ║ ║ ║ ║ ║  ║  ║ ║ ║ ║ ╔═╣ ║ ║ ╠═╝ ║   ║  ║ ║ ║ ║ ║
+╩ ╩ ╩ ╚═╝ ╩  ╚╝ ╩ ╠═╝ ╩ ╚═╚ ╚═╣ ╚═╝ ╩   ╩  ╩ ╚═╝ ╚═╝
+                  ║           ║                      
+                  ╩         ╚═╝                      `;
 
   private static cols(): number {
     return process.stdout.columns || 80;
@@ -367,6 +371,7 @@ export default class UI {
             rerender();
           }
         };
+        refreshInterval();
         const id = setInterval(refreshInterval, 3000);
         cleanup = () => { clearInterval(id); origCleanup(); };
       }

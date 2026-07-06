@@ -7,7 +7,7 @@ import Minecraft from "./minecraft";
 type BroadcastData = { type: string; ip: string }
 
 export default class Hosting {
-  private static readonly BROADCAST_PORT = 42069;
+  private static readonly BROADCAST_PORT = 42005;
   private static readonly BROADCASTIP = `${Zerotier.START_IP}.255`;
   private static readonly LISTEN_TIMEOUT = 5_000;
   private static readonly HEARTBEAT_INTERVAL = 3_000;
@@ -19,9 +19,9 @@ export default class Hosting {
   private static confirmTimer: NodeJS.Timeout | undefined;
   private static hostFound = false;
   private static resolve: () => void;
-  static ip: string | null = null
+  static ip: string | null = null;
 
-  static startMonitoring(): Promise<void> {
+  static startMonitoring(serverName: string): Promise<void> {
     return new Promise(async (resolve) => {
       Hosting.resolve = resolve;
       Hosting.hostFound = false;
@@ -41,10 +41,10 @@ export default class Hosting {
           const fullIP = `${msg.ip}:${Java.PORT}`;
 
           log(`Someone is already playing on ${fullIP}`, "info");
-          Minecraft.addServer(fullIP, "TEST");
-          Hosting.continueMonitoring();
+          Minecraft.addServer(fullIP, serverName);
+          Hosting.continueMonitoring(serverName);
         } else if (Hosting.ip === msg.ip) {
-          Hosting.continueMonitoring();
+          Hosting.continueMonitoring(serverName);
         } else if (Hosting.ip === Zerotier.ip && msg.ip < Zerotier.ip!) {
           clearInterval(Hosting.heartBeatTimer);
           clearTimeout(Hosting.confirmTimer);
@@ -52,8 +52,8 @@ export default class Hosting {
           const fullIP = `${msg.ip}:${Java.PORT}`;
 
           log(`Reconecting to new host on ${fullIP}`, "info");
-          Minecraft.addServer(fullIP, "TEST");
-          Hosting.continueMonitoring();
+          Minecraft.addServer(fullIP, serverName);
+          Hosting.continueMonitoring(serverName);
         }
       });
 
@@ -64,12 +64,12 @@ export default class Hosting {
 
       setTimeout(() => {
         if (Hosting.hostFound) return;
-        Hosting.becomeHost();
+        Hosting.becomeHost(serverName);
       }, Hosting.LISTEN_TIMEOUT);
     });
   }
 
-  private static becomeHost() {
+  private static becomeHost(serverName: string) {
     if (Hosting.ip === Zerotier.ip) return;
 
     Hosting.ip = Zerotier.ip;
@@ -88,15 +88,15 @@ export default class Hosting {
     }, Hosting.HEARTBEAT_INTERVAL);
 
     Hosting.confirmTimer = setTimeout(() => {
-      log("Wait, you will be hosting...", "info");
-      Minecraft.addServer(`${Zerotier.ip}:${Java.PORT}`, "TEST");
+      log("Wait, you will be the host now...", "info");
+      Minecraft.addServer(`${Zerotier.ip}:${Java.PORT}`, serverName);
       Hosting.resolve();
     }, Hosting.CONFIRM_TIMEOUT);
   }
 
-  private static continueMonitoring() {
+  private static continueMonitoring(serverName: string) {
     clearTimeout(Hosting.staleTimer);
-    Hosting.staleTimer = setTimeout(Hosting.becomeHost, Hosting.STALE_TIMEOUT);
+    Hosting.staleTimer = setTimeout(() => Hosting.becomeHost(serverName), Hosting.STALE_TIMEOUT);
   }
 
   static disableKeepAlive() {

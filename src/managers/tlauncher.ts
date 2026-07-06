@@ -2,7 +2,6 @@ import { readFile, writeFile, readdir, cp, rename, rm } from "fs/promises";
 import { exists, run, log, throwErr, tryCatch } from "../utils"
 import { join, extname } from "path";
 import { IS_WIN32, MC_DIR, VERSIONS_DIR } from "../constants";
-import Java from "./java";
 import UI from "./ui";
 import { spawn } from "child_process";
 
@@ -15,8 +14,6 @@ export default class Tlauncher {
   private static readonly FEDORA_MC_INSTALLER = 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/z-Eduard005/fedora-mc-installer/main/mc-installer.sh)"';
   private static readonly ALLOWED_ACCOUNT_TYPES = ["login.account.type=minecraft", "login.account.type=ely"]
   private static readonly REQUIRED_PROPS = [
-    "minecraft.xmx=_RAM_VALUE_",
-    "minecraft.javaargs=-Xmx_RAM_VALUE_M -Xms_RAM_VALUE_M",
     "minecraft.versions.old_alpha=false",
     "minecraft.versions.old_beta=false",
     "minecraft.versions.sub.old_release=false",
@@ -54,9 +51,7 @@ export default class Tlauncher {
   static async initSettings() {
     await tryCatch(async () => {
       const props = await readFile(Tlauncher.PROPS_FILE, "utf8");
-      const requiredProps = Tlauncher.REQUIRED_PROPS.map(p => p.replaceAll("_RAM_VALUE_", Java.ram.toString()));
-
-      await writeFile(Tlauncher.PROPS_FILE, Tlauncher.addProps(props, requiredProps), "utf8");
+      await writeFile(Tlauncher.PROPS_FILE, Tlauncher.addProps(props, Tlauncher.REQUIRED_PROPS), "utf8");
     }, `Error initializing tlauncher settings (check the destination folder - ${Tlauncher.PROPS_FILE})`);
   }
 
@@ -77,14 +72,10 @@ export default class Tlauncher {
     );
   }
 
-  static async checkAccountType() {
-    const err = "You should choose microsoft or ely.by account in tlauncher for plaing!";
-    await tryCatch(async () => {
-      const content = await readFile(Tlauncher.PROPS_FILE, "utf8");
-      if (!Tlauncher.ALLOWED_ACCOUNT_TYPES.some(type => {
-        return content.includes(type);
-      })) throwErr(err);
-    }, err);
+  static async isValidAccount(): Promise<boolean> {
+    if (!await exists(Tlauncher.PROPS_FILE)) return false;
+    const content = await readFile(Tlauncher.PROPS_FILE, "utf8");
+    return Tlauncher.ALLOWED_ACCOUNT_TYPES.some(type => content.includes(type));
   }
 
   static async getAccountName(): Promise<string> {

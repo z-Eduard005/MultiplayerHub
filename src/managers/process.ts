@@ -1,7 +1,6 @@
 import { IS_WIN32, USER_DIR, APP_NAME } from "../constants";
 import { color, isSuccess, log, run, throwErr, tryCatch } from "../utils";
 import { createInterface } from "readline";
-import Zerotier from "./zerotier";
 import Git from "./git";
 import Java from "./java";
 import Hosting from "./hosting";
@@ -102,24 +101,14 @@ export default class Process {
     });
   }
 
-  static async stop(successLog?: string) {
+  static async stop() {
     if (Process.closing) return;
     Process.closing = true;
     UI.restoreMainScreen();
 
     Git.worldDisableRepeatedPush();
     await Java.kill();
-
-    if (Hosting.ip === Zerotier.ip && Git.worldInitialized) {
-      await tryCatch(
-        () => Git.syncWorld(),
-        err => log(err, "error")
-      );
-    }
     Hosting.disableKeepAlive();
-    await Zerotier.leave("TEST");
-
-    if (successLog) log(successLog, "success");
 
     await Process.pause();
     process.exit(0);
