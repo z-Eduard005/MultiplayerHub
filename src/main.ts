@@ -23,12 +23,14 @@ tryCatch(
 
     const runInstance = async (serverName: string) => {
       UI.restoreMainScreen();
+
+      const config = await App.getConfig(CONFIG_FILE);
+      const instances = (config["instances"] as Instance[]) ?? [];
+      const instance = instances.find(i => i.name === serverName);
+      if (!instance) return;
+      const ztNetworkId = instance.zerotierID ?? config["zerotierID"] as string;
+
       await tryCatch(async () => {
-        const config = await App.getConfig(CONFIG_FILE);
-        const ztNetworkId = config["zerotierID"] as string;
-        const instances = (config["instances"] as Instance[]) ?? [];
-        const instance = instances.find(i => i.name === serverName);
-        if (!instance) return;
 
         Java.getRam();
 
@@ -87,8 +89,7 @@ tryCatch(
         }
         Hosting.disableKeepAlive();
 
-        const cfg = await App.getConfig(CONFIG_FILE);
-        await Zerotier.leave(cfg["zerotierID"] as string);
+        await Zerotier.leave(ztNetworkId);
       });
     };
 
@@ -198,6 +199,13 @@ tryCatch(
 
           if (inputCancelled) continue;
           await App.putConfig(CONFIG_FILE, { zerotierID: newId });
+
+          const instances = (config["instances"] as Instance[]) ?? [];
+          for (const inst of instances) {
+            if (inst.owner === "me") {
+              await App.updateInstance(inst.name, { zerotierID: newId });
+            }
+          }
         }
       }
     };

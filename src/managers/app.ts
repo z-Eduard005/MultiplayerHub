@@ -32,6 +32,7 @@ export type Instance = {
   owner: string;
   state: "init" | "installed" | "ready";
   version: string;
+  zerotierID?: string;
   repoUrl?: string;
   inviteString?: string;
 }
@@ -223,7 +224,10 @@ export default class App {
 
     const config = await App.getConfig(CONFIG_FILE);
     const instances = (config["instances"] as Instance[]) ?? [];
-    instances.push({ name: serverName, owner: "me", state: "init", version: serverVersion });
+    const zerotierID = config["zerotierID"] as string | undefined;
+    const entry: Instance = { name: serverName, owner: "me", state: "init", version: serverVersion };
+    if (zerotierID) entry.zerotierID = zerotierID;
+    instances.push(entry);
     await App.putConfig(CONFIG_FILE, { instances });
   }
 
@@ -237,11 +241,11 @@ export default class App {
 
   static async generateInviteString(serverName: string): Promise<string> {
     const config = await App.getConfig(CONFIG_FILE);
-    const networkId = config["zerotierID"] as string;
-
     const instances = (config["instances"] as Instance[]) ?? [];
     const instance = instances.find(i => i.name === serverName);
     if (!instance) throwErr(`Instance "${serverName}" not found`);
+
+    const networkId = instance!.zerotierID ?? config["zerotierID"] as string;
 
     const nickName = await Tlauncher.getAccountName();
     const ztIp = Zerotier.ip;
