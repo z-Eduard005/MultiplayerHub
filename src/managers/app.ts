@@ -30,7 +30,7 @@ type GithubRelease = {
 export type Instance = {
   name: string;
   owner: string;
-  state: "init" | "installed" | "ready";
+  state: "init" | "installed" | "ready" | "invited";
   version: string;
   zerotierID?: string;
   repoUrl?: string;
@@ -240,36 +240,76 @@ export default class App {
   }
 
   static async generateInviteString(serverName: string): Promise<string> {
-    const config = await App.getConfig(CONFIG_FILE);
-    const instances = (config["instances"] as Instance[]) ?? [];
-    const instance = instances.find(i => i.name === serverName);
-    if (!instance) throwErr(`Instance "${serverName}" not found`);
+    return await tryCatch(async () => {
+      const config = await App.getConfig(CONFIG_FILE);
+      const instances = (config["instances"] as Instance[]) ?? [];
+      const instance = instances.find(i => i.name === serverName);
+      if (!instance) throwErr(`Instance "${serverName}" not found`);
 
-    const networkId = instance!.zerotierID ?? config["zerotierID"] as string;
+      const networkId = instance!.zerotierID ?? config["zerotierID"] as string;
 
-    const nickName = await Tlauncher.getAccountName();
-    const ztIp = Zerotier.ip;
-    if (!ztIp) throwErr("Error: Your ZeroTier IP not found");
+      const nickName = await Tlauncher.getAccountName();
+      const ztIp = Zerotier.ip;
+      if (!ztIp) throwErr("Error: Your ZeroTier IP not found");
 
-    const deployKeyPath = join(INSTANCES_DIR, serverName, "deploy_key");
-    const privateKey = await readFile(deployKeyPath, "utf8");
+      const deployKeyPath = join(INSTANCES_DIR, serverName, "deploy_key");
+      const privateKey = await readFile(deployKeyPath, "utf8");
 
-    const repoUrl = instance!.repoUrl;
-    const mcVersion = instance!.version;
-    if (!repoUrl) throwErr(`Error: Missing "repoUrl" for instance "${serverName}"`);
-    if (!mcVersion) throwErr(`Error: Missing "version" for instance "${serverName}"`);
+      const repoUrl = instance!.repoUrl;
+      const mcVersion = instance!.version;
+      if (!repoUrl) throwErr(`Error: Missing "repoUrl" for instance "${serverName}"`);
+      if (!mcVersion) throwErr(`Error: Missing "version" for instance "${serverName}"`);
 
-    const data = {
-      networkId,
-      nickName,
-      ztIp,
-      serverName,
-      privateKey,
-      repoUrl,
-      mcVersion,
-    };
+      const data = {
+        networkId,
+        nickName,
+        ztIp,
+        serverName,
+        privateKey,
+        repoUrl,
+        mcVersion,
+      };
 
-    return Buffer.from(JSON.stringify(data)).toString("base64");
+      return Buffer.from(JSON.stringify(data)).toString("base64");
+    }, "Failed to generate invite string");
+  }
+
+  static async decodeInviteString(invite: string): Promise<string> {
+    return await tryCatch(async () => {
+      const raw = Buffer.from(invite, "base64").toString("utf8");
+      const data = JSON.parse(raw);
+      const { networkId, nickName, serverName, privateKey, repoUrl, mcVersion } = data;
+      if (!networkId || !nickName || !serverName || !privateKey || !repoUrl || !mcVersion) {
+        throwErr("Invalid invite string: missing required fields");
+      }
+
+      const config = await App.getConfig(CONFIG_FILE);
+      const instances = (config["instances"] as Instance[]) ?? [];
+      if (instances.some(i => i.name === serverName)) {
+        throwErr(`Instance "${serverName}" already exists`);
+      }
+
+      await mkdir(join(INSTANCES_DIR, serverName), { recursive: true });
+      await writeFile(join(INSTANCES_DIR, serverName, "deploy_key"), privateKey, "utf8");
+
+      const entry: Instance = {
+        name: serverName,
+        owner: nickName,
+        state: "invited",
+        version: mcVersion,
+        zerotierID: networkId,
+        repoUrl: repoUrl,
+      };
+      instances.push(entry);
+      await App.putConfig(CONFIG_FILE, { instances });
+      return serverName;
+    }, "Failed to decode invite string");
+  }
+
+  static async setupInvitedServer(serverName: string): Promise<void> {
+    return await tryCatch(async () => {
+
+    }, `Failed to setup server from invite for "${serverName}"`);
   }
 
   static async copyToClipboard(text: string) {

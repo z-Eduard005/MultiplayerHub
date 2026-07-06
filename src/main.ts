@@ -213,7 +213,7 @@ tryCatch(
     while (true) {
       const { value, cancelled, index } = await UI.list([
         "= Choose Server",
-        "> Create Server Instance",
+        "> Create Server",
         "+ Add New Server",
       ], {
         title: UI.START_ART,
@@ -231,7 +231,7 @@ tryCatch(
         continue;
       }
 
-      if (value === "> Create Server Instance") {
+      if (value === "> Create Server") {
         let lastTlauncherLaunch = 0;
         let serverName = "";
         let serverVersion = "";
@@ -318,6 +318,14 @@ tryCatch(
         if (step < 4) continue;
       }
       if (value === "+ Add New Server") {
+        const { value: invite, cancelled } = await UI.input({
+          title: "Paste invite string",
+          desc: "Ask the server creator for an invite string",
+          maxLen: 2048,
+        });
+        if (cancelled) continue;
+        const serverName = await App.decodeInviteString(invite);
+        await App.setupInvitedServer(serverName);
         continue;
       };
     }

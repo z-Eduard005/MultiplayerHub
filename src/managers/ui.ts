@@ -450,7 +450,7 @@ export default class UI {
       let triedSubmit = false;
       let keyHandler: (key: string) => void = () => { };
 
-      const MAX_LEN = Math.min(maxLen ?? 50, 100);
+      const MAX_LEN = maxLen ?? 50;
       const CURSOR_BG = "\x1B[48;5;27m";
 
       const getError = (): string | null => {
