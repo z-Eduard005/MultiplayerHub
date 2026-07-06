@@ -22,14 +22,13 @@ tryCatch(
     let instanceError: string | null = null;
 
     const runInstance = async (serverName: string) => {
+      UI.restoreMainScreen();
       await tryCatch(async () => {
         const config = await App.getConfig(CONFIG_FILE);
         const ztNetworkId = config["zerotierID"] as string;
         const instances = (config["instances"] as Instance[]) ?? [];
         const instance = instances.find(i => i.name === serverName);
         if (!instance) return;
-
-        UI.restoreMainScreen();
 
         Java.getRam();
 
@@ -48,26 +47,31 @@ tryCatch(
         await Java.generateServerSettings(Zerotier.ip!, serverName);
         await Java.start(serverName);
 
-        Java.process?.on("error", async (err) => {
-          throwErr(`Error starting Java server. Check path to Java: ${Java.getJavaPath(instance.version)}\n${err}`);
-        });
-        Java.process?.on("close", async (code) => {
-          if (code !== 0) {
-            throwErr(`Server terminated with an error (code: ${code})`);
-          }
-        });
-        Java.process?.stdout.on("data", async (data) => {
-          process.stdout.write(data);
+        if (!Java.process) return;
 
-          if (data.includes(`${adminName} joined the game`)) {
-            Java.runMCCommand(`op ${adminName}`);
-          }
+        await new Promise<void>((resolve) => {
+          Java.process?.on("error", async (err) => {
+            throwErr(`Error starting Java server. Check path to Java: ${Java.getJavaPath(instance.version)}\n${err}`);
+          });
+          Java.process?.on("close", async (code) => {
+            if (code !== 0) {
+              throwErr(`Server terminated with an error (code: ${code})`);
+            }
+            resolve();
+          });
+          Java.process?.stdout.on("data", async (data) => {
+            process.stdout.write(data);
 
-          if (data.includes("Unloading dimension 1")) {
-            log(`You have started the server on port: ${Zerotier.ip}:${Java.PORT}\nHave fun playing :)`, "success");
+            if (data.includes(`${adminName} joined the game`)) {
+              Java.runMCCommand(`op ${adminName}`);
+            }
 
-            Git.worldEnableRepeatedPush(serverName, "TEST");
-          }
+            if (data.includes("Unloading dimension 1")) {
+              log(`You have started the server on port: ${Zerotier.ip}:${Java.PORT}\nHave fun playing :)`, "success");
+
+              Git.worldEnableRepeatedPush(serverName, "TEST");
+            }
+          });
         });
       }, async (err) => {
         instanceError = err;
@@ -134,7 +138,6 @@ tryCatch(
         }
         if (value === "/ Launch Instance") {
           await runInstance(serverName);
-          if (!instanceError) break;
         }
         if (cancelled) break;
       }
