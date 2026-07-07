@@ -22,6 +22,7 @@ type ListOptions = LayoutOptions & {
 
 export type ListItem = {
   label: string;
+  value?: string;
   badge?: string;
   badgeColor?: "red" | "green" | "yellow";
   blocked?: boolean;
@@ -407,7 +408,7 @@ export default class UI {
           if (pool.length === 0) return;
           if (pool[selectedIndex]?.blocked) return;
           cleanup();
-          resolve({ value: pool[selectedIndex]!.label, index: selectedIndex, cancelled: false });
+          resolve({ value: pool[selectedIndex]!.value ?? pool[selectedIndex]!.label, index: selectedIndex, cancelled: false });
           return;
         }
         if (key === "\u001b[A") {

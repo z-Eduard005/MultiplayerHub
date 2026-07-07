@@ -74,7 +74,7 @@ tryCatch(
             if (data.includes("Unloading dimension 1")) {
               log(`You have started the server on port: ${Zerotier.ip}:${Java.PORT}\nHave fun playing :)`, "success");
 
-              Git.worldEnableRepeatedPush(serverName, "TEST");
+              Git.worldEnableRepeatedPush(serverName, instance.repoUrl ?? "");
             }
           });
         });
@@ -86,7 +86,7 @@ tryCatch(
         Git.worldDisableRepeatedPush();
         if (Hosting.ip === Zerotier.ip && Git.worldInitialized) {
           await tryCatch(
-            () => Git.syncWorld(serverName, "TEST"),
+            () => Git.syncWorld(serverName, instance.repoUrl ?? ""),
             err => log(err, "error")
           );
         }
@@ -99,6 +99,10 @@ tryCatch(
     const instanceEntryUi = async (serverName: string) => {
       while (true) {
         let wasValid = await Tlauncher.isValidAccount();
+        const inst = await App.getInstance(serverName);
+        const desc = inst?.owner !== "me"
+          ? `\nOwner: ${inst?.owner}`
+          : `\nYou can add mods and configs by just placing them in:\n"${join(GAME_DIR, "home", serverName)}"`
 
         const { value, cancelled } = await UI.list(
           [
@@ -107,8 +111,8 @@ tryCatch(
             "* Change Memory allocation",
           ],
           {
-            title: `Server Instance "${serverName}"`,
-            desc: `\nYou can add mods and configs by just placing them in:\n"${join(GAME_DIR, "home", serverName)}"`,
+            title: `Server Instance "${serverName.replace(/^0+/, "")}"`,
+            desc,
             refresh: async () => {
               if (instanceError) {
                 log(instanceError, "error");
@@ -164,7 +168,7 @@ tryCatch(
 
         const { value, cancelled } = await UI.list(
           instances.map(i => {
-            const item: ListItem = { label: i.name };
+            const item: ListItem = { label: i.name.replace(/^0+/, ""), value: i.name };
             if (i.state !== "ready") {
               item.badge = "Not Ready";
             } else if (i.owner === "me") {

@@ -255,9 +255,7 @@ export default class App {
 
       const networkId = instance!.zerotierID ?? config["zerotierID"] as string;
 
-      const nickName = await Tlauncher.getAccountName();
-      const ztIp = Zerotier.ip;
-      if (!ztIp) throwErr("Error: Your ZeroTier IP not found");
+      const nickName = instance!.owner !== "me" ? instance!.owner : await Tlauncher.getAccountName();
 
       const deployKeyPath = join(INSTANCES_DIR, serverName, "deploy_key");
       const privateKey = await readFile(deployKeyPath, "utf8");
@@ -270,7 +268,6 @@ export default class App {
       const data = {
         networkId,
         nickName,
-        ztIp,
         serverName,
         privateKey,
         repoUrl,
@@ -292,15 +289,12 @@ export default class App {
 
       const config = await App.getConfig(CONFIG_FILE);
       const instances = (config["instances"] as Instance[]) ?? [];
-      if (instances.some(i => i.name === serverName)) {
-        throwErr(`Instance "${serverName}" already exists`);
-      }
-
-      await mkdir(join(INSTANCES_DIR, serverName), { recursive: true });
-      await writeFile(join(INSTANCES_DIR, serverName, "deploy_key"), privateKey, "utf8");
+      const name = instances.some(i => i.name === serverName) ? "0" + serverName : serverName;
+      await mkdir(join(INSTANCES_DIR, name), { recursive: true });
+      await writeFile(join(INSTANCES_DIR, name, "deploy_key"), privateKey, "utf8");
 
       const entry: Instance = {
-        name: serverName,
+        name,
         owner: nickName,
         state: "invited",
         version: mcVersion,
