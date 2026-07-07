@@ -31,7 +31,6 @@ tryCatch(
       const ztNetworkId = instance.zerotierID ?? config["zerotierID"] as string;
 
       await tryCatch(async () => {
-
         const ram = instance.ram ?? Java.getDefaultRam();
         if (ram < Java.MIN_RAM_MB) {
           throwErr("You don't have enough memory to play on the server :(");
@@ -49,7 +48,7 @@ tryCatch(
         // await Git.worldSync();
 
         const adminName = await Tlauncher.getAccountName();
-        await Java.generateServerSettings(Zerotier.ip!, serverName);
+        await Java.applyServerIp(Zerotier.ip!, serverName);
         await Java.start(serverName, ram);
 
         if (!Java.process) return;
@@ -109,6 +108,7 @@ tryCatch(
             { label: "/ Launch Instance", blocked: !wasValid },
             "_ Copy Invite string",
             "* Change Memory allocation",
+            { value: "- Delete server", label: color("- Delete server", "error") },
           ],
           {
             title: `Server Instance "${serverName.replace(/^0+/, "")}"`,
@@ -127,6 +127,7 @@ tryCatch(
                 { label: "/ Launch Instance", blocked: !valid },
                 "_ Copy Invite string",
                 "* Change Memory allocation",
+                { value: "- Delete server", label: color("- Delete server", "error") },
               ];
             },
           }
@@ -156,6 +157,17 @@ tryCatch(
         if (value === "/ Launch Instance") {
           await runInstance(serverName);
         }
+        if (value === "- Delete server") {
+          const { value: confirm } = await UI.input({
+            title: `Are you sure you want to ${color("delete", "error")} "${serverName.replace(/^0+/, "")}"?`,
+            desc: "Type DELETE to confirm",
+            maxLen: 100,
+          });
+          if (confirm === "DELETE") {
+            await App.removeInstance(serverName);
+            break;
+          }
+        }
         if (cancelled) break;
       }
     };
@@ -172,7 +184,7 @@ tryCatch(
             if (i.state !== "ready") {
               item.badge = "Not Ready";
             } else if (i.owner === "me") {
-              item.badge = "★";
+              item.badge = "★ me";
               item.badgeColor = "green";
             } else {
               item.badge = `☆ ${i.owner}`;
@@ -299,8 +311,8 @@ tryCatch(
             if (cancelled) { step = 1; continue; }
             serverVersion = value;
             await App.initInstance(serverName, serverVersion);
-            await Java.installServer(serverName, serverVersion);
 
+            await Java.installServer(serverName, serverVersion);
             await App.updateInstance(serverName, { state: "installed" });
 
             step = 3;
@@ -333,11 +345,20 @@ tryCatch(
         if (step < 4) continue;
       }
       if (value === "+ Add New Server") {
+        const config = await App.getConfig(CONFIG_FILE);
+        const myInvites = ((config["instances"] as Instance[]) ?? [])
+          .filter(i => i.owner === "me" && i.inviteString)
+          .map(i => i.inviteString);
+
         const { value: invite, cancelled } = await UI.input({
           title: "Paste invite string",
           desc: "Ask the server creator for an invite string",
           maxLen: 2048,
+          validate: (v: string) => {
+            return myInvites.includes(v) ? "You can't add your own server" : null;
+          },
         });
+
         if (cancelled) continue;
         const serverName = await App.decodeInviteString(invite);
         await App.setupInvitedServer(serverName);

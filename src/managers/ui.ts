@@ -331,7 +331,7 @@ export default class UI {
             const fg = isSelected ? SEL_FG : UI.FG;
 
             const plain = l.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "");
-            const BADGE_STYLE = item.badgeColor === "green" ? "\x1B[32m\x1B[1m" : item.badgeColor === "yellow" ? "\x1B[33m\x1B[1m" : "\x1B[48;5;196m\x1B[38;5;255m";
+            const BADGE_STYLE = item.badgeColor === "green" ? "\x1B[47m\x1B[32m\x1B[1m" : item.badgeColor === "yellow" ? "\x1B[33m\x1B[1m" : "\x1B[48;5;196m\x1B[38;5;255m";
             const displayBadge = item.badge || (item.blocked ? "locked" : undefined);
             const truncatedBadge = displayBadge && displayBadge.length > 10 ? displayBadge.slice(0, 10) + "..." : displayBadge;
             const badgeText = truncatedBadge && i === 0 ? ` ${BADGE_STYLE}${truncatedBadge}${bg}${fg}` : "";
@@ -339,7 +339,7 @@ export default class UI {
             const style = i === 0 ? "\x1B[1m" : "";
             const resetStyle = i === 0 ? "\x1B[22m" : "";
 
-            let line = `${listIndent}${bg}${fg}${" ".repeat(UI.PADDING)}${style}${l}${resetStyle}${" ".repeat(rightFill)}${badgeText}`;
+            let line = `${listIndent}${bg}${fg}${" ".repeat(UI.PADDING)}${style}${l}\x1B[0m${bg}${fg}${resetStyle}${" ".repeat(rightFill)}${badgeText}`;
             if (scrollNeeded) {
               line += `${scrollbarChars[index] ?? "\u2502"} `;
             }

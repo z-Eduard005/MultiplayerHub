@@ -56,13 +56,15 @@ export default class Java {
     }
   }
 
-  static async generateServerSettings(ip: string, serverName: string) {
+  static async applyServerIp(ip: string, serverName: string) {
     log("Generating server settings...", "info");
     await tryCatch(
-      () => {
-        return writeFile(
-          join(INSTANCES_DIR, serverName, "server", "server.properties"),
-          Java.SERVER_PROPS.replace("server-ip=", "server-ip=" + ip),
+      async () => {
+        const propsPath = join(INSTANCES_DIR, serverName, "server", "server.properties");
+        const props = await readFile(propsPath, "utf8");
+        await writeFile(
+          propsPath,
+          Java.addProps(props, `server-ip=${ip}`),
           "utf8"
         );
       },
@@ -186,7 +188,7 @@ export default class Java {
   }
 
   static async installServer(name: string, version: string) {
-    return await tryCatch(async () => {
+    await tryCatch(async () => {
       const m = version.match(/^(Fabric|Forge) (\d+\.\d+(?:\.\d+)?)$/);
       const loader = m?.[1];
       const mcVer = m?.[2];
@@ -226,14 +228,50 @@ export default class Java {
         await rm(jarInstallerPath);
       }
 
-      await run(`"${javaPath}" -jar "${jarName}"`, { cwd: serverDir, inherit: true });
+      await run(`"${javaPath}" -jar "${jarName}" nogui`, { cwd: serverDir, inherit: true });
       const eulaPath = join(serverDir, "eula.txt");
       await writeFile(eulaPath, (await readFile(eulaPath, "utf8")).replace("eula=false", "eula=true"));
 
-      // TODO: need to run again to generate all server data
+      await run(`"${javaPath}" -jar "${jarName}" nogui <<< "stop"`, { cwd: serverDir, inherit: true });
+
+      const propsPath = join(serverDir, "server.properties");
+      await writeFile(
+        propsPath,
+        Java.addProps(await readFile(propsPath, "utf8"), [
+          "spawn-protection=0",
+          "broadcast-console-to-ops=true",
+          "difficulty=2",
+          "pvp=true",
+          "max-players=10",
+          `server-port=${Java.PORT}`,
+          "view-distance=16",
+          "white-list=false",
+          "online-mode=false",
+          `motd=${APP_NAME}`,
+        ]),
+        "utf8"
+      );
 
       log("Server installed successfully", "success");
     }, "Server jar installation failed");
+  }
+
+  private static addProps(props: string, entries: string | string[]) {
+    const replaceEntry = (str: string, searchVal: string, replaceVal: string) => {
+      return str.replace(new RegExp(`^${searchVal}.*$`, "m"), replaceVal);
+    };
+
+    const entriesArray = Array.isArray(entries) ? entries : [entries];
+    entriesArray.forEach(
+      (entry) => {
+        const key = entry.split("=")[0]!;
+        props = props.includes(key)
+          ? replaceEntry(props, key, entry)
+          : `${props}\n${entry}`;
+      }
+    );
+
+    return props;
   }
 
   static async kill() {
@@ -253,47 +291,4 @@ export default class Java {
       });
     }, "Java process was not killed", true);
   }
-
-  private static readonly SERVER_PROPS = `
-#Minecraft server properties
-#Sun Dec 15 21:12:03 EET 2024
-spawn-protection=0
-max-tick-time=60000
-generator-settings=
-force-gamemode=false
-allow-nether=true
-gamemode=0
-broadcast-console-to-ops=true
-enable-query=false
-player-idle-timeout=0
-difficulty=2
-spawn-monsters=true
-op-permission-level=4
-pvp=true
-snooper-enabled=true
-level-type=DEFAULT
-hardcore=false
-enable-command-block=true
-max-players=10
-network-compression-threshold=256
-resource-pack-sha1=
-max-world-size=29999984
-server-port=${Java.PORT}
-server-ip=
-spawn-npcs=true
-allow-flight=true
-level-name=world
-view-distance=10
-resource-pack=
-spawn-animals=true
-white-list=false
-generate-structures=true
-online-mode=false
-max-build-height=256
-level-seed=
-prevent-proxy-connections=false
-motd=${APP_NAME}
-enable-rcon=false
-defaultworldgenerator-port=
-`;
 }

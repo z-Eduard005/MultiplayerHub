@@ -39,7 +39,7 @@ export type Instance = {
 }
 
 export default class App {
-  private static readonly VERSION = "0.0.29";
+  private static readonly VERSION = "0.0.30";
   private static readonly RELEASE_URL = "https://api.github.com/repos/z-Eduard005/MultiplayerHub/releases/latest"
   private static readonly RAW_GITHUB_URL = "https://raw.githubusercontent.com/z-Eduard005/MultiplayerHub/main";
   private static readonly FILE = join(APP_DIR, IS_WIN32 ? APP_NAME + ".exe" : APP_NAME);
@@ -218,7 +218,10 @@ export default class App {
   }
 
   static async initInstance(serverName: string, serverVersion: string) {
+    await rm(join(INSTANCES_DIR, serverName), { recursive: true, force: true });
+    await rm(join(VERSIONS_DIR, serverName), { recursive: true, force: true });
     await rm(App.PENDING_DIR, { recursive: true, force: true });
+
     await mkdir(App.PENDING_DIR, { recursive: true });
     await Tlauncher.setupServerVersion(serverVersion, serverName);
     await rename(App.PENDING_DIR, join(INSTANCES_DIR, serverName));
@@ -244,6 +247,18 @@ export default class App {
     const inst = instances.find(i => i.name === name);
     if (inst) Object.assign(inst, patch);
     await App.putConfig(CONFIG_FILE, { instances });
+  }
+
+  static async removeInstance(name: string): Promise<void> {
+    return await tryCatch(async () => {
+      const config = await App.getConfig(CONFIG_FILE);
+      const instances = (config["instances"] as Instance[]) ?? [];
+      const filtered = instances.filter(i => i.name !== name);
+      await App.putConfig(CONFIG_FILE, { instances: filtered });
+
+      await rm(join(INSTANCES_DIR, name), { recursive: true, force: true });
+      await rm(join(VERSIONS_DIR, name), { recursive: true, force: true });
+    }, `Failed to remove instance "${name}"`);
   }
 
   static async generateInviteString(serverName: string): Promise<string> {
@@ -318,7 +333,7 @@ export default class App {
       if (IS_WIN32) {
         await run(`echo ${text} | clip`);
       } else {
-        await run(`wl-copy "${text}"`);
+        await run(`timeout 2 wl-copy "${text}"`);
       }
       log("Copied to clipboard", "success");
     }, "Failed to copy to clipboard", true);
