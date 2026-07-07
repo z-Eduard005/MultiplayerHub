@@ -1,9 +1,9 @@
 import { cp, mkdir, readFile, rename, rm, writeFile } from "fs/promises";
 import { exists, randomNum, run, log, tryCatch, throwErr } from "../utils";
-import { USER_NAME, INSTANCES_DIR, CONFIG_FILE } from "../constants";
+import { USER_NAME, INSTANCES_DIR } from "../constants";
 import { join } from "path";
 import GH from "./gh";
-import App, { type Instance } from "./app";
+import App from "./app";
 
 export default class Git {
   private static readonly PUSH_INTERVAL_MS = 30 * 60 * 1000;
@@ -54,10 +54,7 @@ export default class Git {
     const posixPath = deployKeyPath.replace(/\\/g, "/");
 
     await tryCatch(async () => {
-      // Get repoUrl from instance config
-      const config = await App.getConfig(CONFIG_FILE);
-      const instances = (config["instances"] as Instance[]) ?? [];
-      const inst = instances.find(i => i.name === serverName);
+      const inst = await App.getInstance(serverName);
       const repoUrl = inst?.repoUrl;
       if (!repoUrl) throwErr("No server url found. Please create a server first");
 

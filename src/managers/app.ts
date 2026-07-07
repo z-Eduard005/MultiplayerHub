@@ -32,6 +32,7 @@ export type Instance = {
   owner: string;
   state: "init" | "installed" | "ready" | "invited";
   version: string;
+  ram?: number;
   zerotierID?: string;
   repoUrl?: string;
   inviteString?: string;
@@ -229,6 +230,12 @@ export default class App {
     if (zerotierID) entry.zerotierID = zerotierID;
     instances.push(entry);
     await App.putConfig(CONFIG_FILE, { instances });
+  }
+
+  static async getInstance(name: string): Promise<Instance | undefined> {
+    const config = await App.getConfig(CONFIG_FILE);
+    const instances = (config["instances"] as Instance[]) ?? [];
+    return instances.find(i => i.name === name);
   }
 
   static async updateInstance(name: string, patch: Partial<Instance>): Promise<void> {

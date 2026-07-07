@@ -32,7 +32,10 @@ tryCatch(
 
       await tryCatch(async () => {
 
-        Java.getRam();
+        const ram = instance.ram ?? Java.getDefaultRam();
+        if (ram < Java.MIN_RAM_MB) {
+          throwErr("You don't have enough memory to play on the server :(");
+        }
 
         await Zerotier.start();
         await Zerotier.join(ztNetworkId);
@@ -47,7 +50,7 @@ tryCatch(
 
         const adminName = await Tlauncher.getAccountName();
         await Java.generateServerSettings(Zerotier.ip!, serverName);
-        await Java.start(serverName);
+        await Java.start(serverName, ram);
 
         if (!Java.process) return;
 
@@ -125,17 +128,26 @@ tryCatch(
           }
         );
         if (value === "_ Copy Invite string") {
-          const cfg = await App.getConfig(CONFIG_FILE);
-          const instances = (cfg["instances"] as Instance[]) ?? [];
-          const inst = instances.find(i => i.name === serverName);
+          const inst = await App.getInstance(serverName);
           if (inst?.inviteString) await App.copyToClipboard(inst.inviteString);
         }
         if (value === "* Change Memory allocation") {
-          await UI.input({
+          const inst = await App.getInstance(serverName);
+
+          const { value: newRam } = await UI.input({
             title: "Memory allocation",
-            desc: `Enter amount of RAM in MB\nMinimum: 2700MB | Maximum: 7168MB`,
-            defaultValue: String(Java.ram),
+            desc: `Enter amount of RAM in MB\nMinimum: ${Java.MIN_RAM_MB}MB | Maximum: ${Java.MAX_RAM_MB}MB`,
+            defaultValue: String(inst?.ram ?? Java.getDefaultRam()),
+            validate: (v) => {
+              const n = Number(v);
+              return isNaN(n) || n < Java.MIN_RAM_MB || n > Java.MAX_RAM_MB
+                ? `Must be between ${Java.MIN_RAM_MB} and ${Java.MAX_RAM_MB}`
+                : null;
+            },
           });
+          const value = newRam.trim();
+          if (!value) continue;
+          await App.updateInstance(serverName, { ram: Number(value) });
         }
         if (value === "/ Launch Instance") {
           await runInstance(serverName);

@@ -22,21 +22,20 @@ type AdoptiumAsset = {
 export default class Java {
   static readonly DIR = join(APP_DIR, "jdk");
 
-  private static readonly MIN_RAM_MB = 2700;
-  private static readonly MAX_RAM_MB = 7168;
+  static MIN_RAM_MB = 2700;
+  static MAX_RAM_MB = 7168;
   private static readonly MAX_RAM_PERCENTAGE = 0.4;
   static readonly PORT = "67676";
-  static ram = Java.MIN_RAM_MB;
   static process: ChildProcessByStdio<Stream.Writable, Stream.Readable, null> | null = null;
 
-  static async start(serverName: string) {
+  static async start(serverName: string, ram: number) {
     log("Server is loading...", "info");
     Java.process = await tryCatch(() => {
       return spawn(
         "Java.FILE",
         [
-          `-Xmx${Java.ram}M`,
-          `-Xms${Java.ram}M`,
+          `-Xmx${ram}M`,
+          `-Xms${ram}M`,
           "-jar",
           join(INSTANCES_DIR, serverName, "server", "server.jar (more letters i guess)"),
           "nogui",
@@ -181,13 +180,9 @@ export default class Java {
     return 8;
   }
 
-  static getRam() {
+  static getDefaultRam() {
     const partOfRam = Math.floor((totalmem() / 1024 / 1024) * Java.MAX_RAM_PERCENTAGE);
-
-    Java.ram = partOfRam > Java.MAX_RAM_MB ? Java.MAX_RAM_MB : partOfRam;
-    if (Java.ram < Java.MIN_RAM_MB) {
-      throwErr("You don't have enough memory to play on the server :(");
-    }
+    return partOfRam > Java.MAX_RAM_MB ? Java.MAX_RAM_MB : partOfRam;
   }
 
   static async installServer(name: string, version: string) {
