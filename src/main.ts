@@ -161,7 +161,7 @@ tryCatch(
           const { value: confirm } = await UI.input({
             title: `Are you sure you want to ${color("delete", "error")} "${serverName.replace(/^0+/, "")}"?`,
             desc: "Type DELETE to confirm",
-            maxLen: 100,
+            maxLen: 50,
           });
           if (confirm === "DELETE") {
             await App.removeInstance(serverName);
@@ -170,6 +170,20 @@ tryCatch(
         }
         if (cancelled) break;
       }
+    };
+
+    const finishServerSetup = async (serverName: string, state: "init" | "installed", version: string) => {
+      if (state === "init") {
+        await Java.installServer(serverName, version);
+        await App.updateInstance(serverName, { state: "installed" });
+      }
+      UI.restoreMainScreen();
+      log("Server creation...", "info");
+      await Git.initServer(serverName);
+      await Git.initWorld(serverName, "");
+      const invite = await App.generateInviteString(serverName);
+      await App.updateInstance(serverName, { state: "ready", inviteString: invite });
+      await instanceEntryUi(serverName);
     };
 
     const chooseServerFlow = async () => {
@@ -196,7 +210,21 @@ tryCatch(
         );
 
         if (cancelled) return;
-        await instanceEntryUi(value);
+
+        const selected = instances.find(i => i.name === value);
+        if (!selected) continue;
+
+        if (selected.state === "ready") {
+          await instanceEntryUi(value);
+          continue;
+        }
+
+        if (selected.owner !== "me") {
+          log(`Server broken. Contact its owner: ${selected.owner}`, "error");
+          continue;
+        }
+
+        await finishServerSetup(value, selected.state, selected.version);
       }
     };
 
@@ -360,8 +388,7 @@ tryCatch(
         });
 
         if (cancelled) continue;
-        const serverName = await App.decodeInviteString(invite);
-        await App.setupInvitedServer(serverName);
+        await App.decodeInviteString(invite);
         continue;
       };
     }

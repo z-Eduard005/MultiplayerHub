@@ -30,7 +30,7 @@ type GithubRelease = {
 export type Instance = {
   name: string;
   owner: string;
-  state: "init" | "installed" | "ready" | "invited";
+  state: "init" | "installed" | "ready";
   version: string;
   ram?: number;
   zerotierID?: string;
@@ -258,6 +258,8 @@ export default class App {
 
       await rm(join(INSTANCES_DIR, name), { recursive: true, force: true });
       await rm(join(VERSIONS_DIR, name), { recursive: true, force: true });
+
+      // TODO: if owner not me then also delete ${join(GAME_DIR, "home", serverName)}
     }, `Failed to remove instance "${name}"`);
   }
 
@@ -311,7 +313,7 @@ export default class App {
       const entry: Instance = {
         name,
         owner: nickName,
-        state: "invited",
+        state: "ready",
         version: mcVersion,
         zerotierID: networkId,
         repoUrl: repoUrl,
@@ -320,12 +322,6 @@ export default class App {
       await App.putConfig(CONFIG_FILE, { instances });
       return serverName;
     }, "Failed to decode invite string");
-  }
-
-  static async setupInvitedServer(serverName: string): Promise<void> {
-    return await tryCatch(async () => {
-
-    }, `Failed to setup server from invite for "${serverName}"`);
   }
 
   static async copyToClipboard(text: string) {
