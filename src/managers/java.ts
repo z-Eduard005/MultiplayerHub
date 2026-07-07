@@ -230,6 +230,8 @@ export default class Java {
       const eulaPath = join(serverDir, "eula.txt");
       await writeFile(eulaPath, (await readFile(eulaPath, "utf8")).replace("eula=false", "eula=true"));
 
+      // TODO: need to run again to generate all server data
+
       log("Server installed successfully", "success");
     }, "Server jar installation failed");
   }

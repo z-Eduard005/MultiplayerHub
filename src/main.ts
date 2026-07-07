@@ -192,8 +192,7 @@ tryCatch(
       while (true) {
         const { value, cancelled } = await UI.list(
           [
-            { label: "Zerotier Network ID", badge: "locked", blocked: true },
-            { label: "test", badge: "locked", blocked: true }
+            { label: "Zerotier Network ID", blocked: true },
           ],
           {
             title: "Settings",
