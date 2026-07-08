@@ -17,7 +17,6 @@ tryCatch(
     await App.setup();
 
     let mainOptionIndex = 0;
-    Zerotier.ip = Zerotier.getIP();
 
     let instanceError: string | null = null;
 
@@ -38,6 +37,7 @@ tryCatch(
 
         await Zerotier.start();
         await Zerotier.join(ztNetworkId);
+        Zerotier.ip = Zerotier.getIP();
 
         await Tlauncher.chooseVersion(serverName);
         await Tlauncher.open();
@@ -105,7 +105,7 @@ tryCatch(
       while (true) {
         let wasValid = await Tlauncher.isValidAccount();
         const inst = await App.getInstance(serverName);
-        if (!inst) break;
+        if (!inst) { instanceError = null; break; }
 
         const ready = inst.state === "ready";
         const desc = !ready
@@ -113,6 +113,7 @@ tryCatch(
           : inst.owner !== "me"
             ? `\nOwner: ${inst.owner}`
             : `\nYou can add mods and configs by just placing them in:\n"${join(GAME_DIR, "home", serverName)}"`
+        const footerText = instanceError ? color(instanceError, "error") : "";
 
         const items: (string | ListItem)[] = ready
           ? [
@@ -129,12 +130,9 @@ tryCatch(
         const opts: Parameters<typeof UI.list>[1] = {
           title: `${serverName.replace(/^0+/, "")} (${inst.version})`,
           desc,
+          footerText,
           ...(ready ? {
             refresh: async () => {
-              if (instanceError) {
-                log(instanceError, "error");
-                instanceError = null;
-              }
               const valid = await Tlauncher.isValidAccount();
               if (!valid && wasValid) {
                 log("You should choose microsoft or ely.by account in tlauncher for plaing!", "warning");
@@ -154,6 +152,7 @@ tryCatch(
 
         if (value === "> Continue setup" && inst.state !== "ready") {
           await finishServerSetup(serverName, inst.state, inst.version);
+          instanceError = null;
           break;
         }
         if (value === "_ Copy Invite string") {
@@ -186,10 +185,11 @@ tryCatch(
           });
           if (confirm === "DELETE") {
             await App.removeInstance(serverName);
+            instanceError = null;
             break;
           }
         }
-        if (cancelled) break;
+        if (cancelled) { instanceError = null; break; }
       }
     };
 

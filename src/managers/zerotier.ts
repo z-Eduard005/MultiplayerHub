@@ -41,7 +41,7 @@ export default class Zerotier {
     log("Starting zerotier service...", "info");
     await tryCatch(async () => {
       const info = await run(sudo(`"${Zerotier.FILE}" info`));
-      if (info.includes("OFFLINE")) {
+      if (!info.includes("ONLINE")) {
         spawn(Zerotier.FILE, {
           detached: true,
           shell: true,
