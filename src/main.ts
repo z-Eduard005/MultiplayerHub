@@ -50,9 +50,7 @@ tryCatch(
 
       await tryCatch(async () => {
         const ram = instance.ram ?? Java.getDefaultRam();
-        if (ram < Java.MIN_RAM_MB) {
-          throwErr("You don't have enough memory to play on the server :(");
-        }
+        if (ram < Java.MIN_RAM_MB) throwErr("You don't have enough memory to play on the server :(");
 
         await Zerotier.start();
         await Zerotier.join(ztNetworkId);
@@ -70,13 +68,13 @@ tryCatch(
           App.updateInstance(serverName, patch);
         });
 
+        if (closeFlag.value) return await closeInstance(serverName, instance, ztNetworkId);
+
         // await Git.serverFetch();
         // await Git.worldSync();
 
         await Java.applyServerIp(Zerotier.ip!, serverName);
         await Java.start(serverName, ram, instance.version);
-
-        if (!Java.process) return;
 
         const closePoll = setInterval(() => {
           if (closeFlag.value) {
@@ -233,7 +231,7 @@ tryCatch(
 
         const { value, cancelled } = await UI.list(
           instances.map(i => {
-            const item: ListItem = { label: `${i.name.replace(/^0+/, "")} (${i.version})`, value: i.name };
+            const item: ListItem = { label: `] ${i.name.replace(/^0+/, "")} (${i.version})`, value: i.name };
             if (i.state !== "ready") {
               item.badge = "Not Ready";
             } else if (i.owner === "me") {

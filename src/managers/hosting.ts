@@ -132,9 +132,11 @@ export default class Hosting {
 
   private static async getPortOwner(): Promise<string | null> {
     try {
-      const out = await run(IS_WIN32
-        ? `netstat -ano | findstr ":${Hosting.BROADCAST_PORT}"`
-        : `ss -tulpn sport = :${Hosting.BROADCAST_PORT} 2>/dev/null`);
+      const out = await run(
+        IS_WIN32
+          ? `netstat -ano | findstr ":${Hosting.BROADCAST_PORT}"`
+          : `ss -tulpn sport = :${Hosting.BROADCAST_PORT} 2>/dev/null`
+      );
       if (!out) return null;
       if (IS_WIN32) return out.trim().split(/\s+/).pop() || null;
       return out.match(/users:\(\([^,]+,(\d+)/)?.[1] || null;

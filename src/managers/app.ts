@@ -40,7 +40,7 @@ export type Instance = {
 }
 
 export default class App {
-  private static readonly VERSION = "0.0.30";
+  private static readonly VERSION = "0.0.31";
   private static readonly RELEASE_URL = "https://api.github.com/repos/z-Eduard005/MultiplayerHub/releases/latest"
   private static readonly RAW_GITHUB_URL = "https://raw.githubusercontent.com/z-Eduard005/MultiplayerHub/main";
   private static readonly FILE = join(APP_DIR, IS_WIN32 ? APP_NAME + ".exe" : APP_NAME);
@@ -136,7 +136,7 @@ export default class App {
       const res = await fetch(App.RELEASE_URL);
       spiner.stop();
       if (!res.ok) {
-        log(`Update check failed:\n\nstatus: ${res.status}\nstatusText: ${res.statusText}\nbody: ${res.body}`, "warning");
+        log(`Update check failed: ${res.statusText}`, "warning");
         return;
       }
 
