@@ -60,12 +60,28 @@ export default class UI {
   private static wrap(text: string, maxWidth: number): string[] {
     const lines: string[] = [];
     for (const segment of text.split("\n")) {
-      if (segment.length <= maxWidth) {
+      const plain = segment.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "");
+      if (plain.length <= maxWidth) {
         lines.push(segment);
       } else {
-        for (let i = 0; i < segment.length; i += maxWidth) {
-          lines.push(segment.slice(i, i + maxWidth));
+        let visualLen = 0;
+        let line = "";
+        for (let i = 0; i < segment.length; i++) {
+          if (segment[i] === '\x1B') {
+            const end = segment.indexOf('m', i);
+            line += segment.slice(i, (end !== -1 ? end : i) + 1);
+            if (end !== -1) i = end;
+            continue;
+          }
+          line += segment[i]!;
+          visualLen++;
+          if (visualLen >= maxWidth) {
+            lines.push(line);
+            line = "";
+            visualLen = 0;
+          }
         }
+        if (line) lines.push(line);
       }
     }
     return lines;
@@ -324,7 +340,7 @@ export default class UI {
           const actualIndex = scrollNeeded ? scrollOffset + index : index;
           const textWidth = TEXT_AREA - scrollBarWidth;
           const label = item.label;
-          const wrapped = label.length > textWidth ? UI.wrap(label, textWidth) : [label];
+          const wrapped = label.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "").length > textWidth ? UI.wrap(label, textWidth) : [label];
           return wrapped.map((l, i) => {
             const isSelected = actualIndex === selectedIndex && i === 0;
             const bg = isSelected ? SEL_BG : UI.BG;

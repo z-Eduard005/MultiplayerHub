@@ -259,7 +259,8 @@ export default class App {
       await rm(join(INSTANCES_DIR, name), { recursive: true, force: true });
       await rm(join(VERSIONS_DIR, name), { recursive: true, force: true });
 
-      // TODO: if owner not me then also delete ${join(GAME_DIR, "home", serverName)}
+      const inst = instances.find(i => i.name === name);
+      if (inst?.owner === "me") await GH.repoDelete(name);
     }, `Failed to remove instance "${name}"`);
   }
 
@@ -329,7 +330,7 @@ export default class App {
       if (IS_WIN32) {
         await run(`echo ${text} | clip`);
       } else {
-        await run(`timeout 2 wl-copy "${text}"`);
+        run(`wl-copy "${text}"`);
       }
       log("Copied to clipboard", "success");
     }, "Failed to copy to clipboard", true);

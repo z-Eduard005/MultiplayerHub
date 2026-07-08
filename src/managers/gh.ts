@@ -79,7 +79,6 @@ export default class GH {
   }
 
   static async repoCreate(name: string): Promise<string> {
-    await GH.repoDelete(name);
     await tryCatch(
       () => run(`gh repo create "${name}" --private`, { inherit: true }),
       `Failed to create repository "${name}"`

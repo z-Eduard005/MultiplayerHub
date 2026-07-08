@@ -51,7 +51,16 @@ export default class Tlauncher {
   static async initSettings() {
     await tryCatch(async () => {
       const props = await readFile(Tlauncher.PROPS_FILE, "utf8");
-      await writeFile(Tlauncher.PROPS_FILE, Tlauncher.addProps(props, Tlauncher.REQUIRED_PROPS), "utf8");
+
+      let missing = false;
+      for (const entry of Tlauncher.REQUIRED_PROPS) {
+        if (!props.includes(entry)) {
+          missing = true;
+          break;
+        }
+      }
+
+      if (missing) await writeFile(Tlauncher.PROPS_FILE, Tlauncher.addProps(props, Tlauncher.REQUIRED_PROPS), "utf8");
     }, `Error initializing tlauncher settings (check the destination folder - ${Tlauncher.PROPS_FILE})`);
   }
 

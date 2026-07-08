@@ -49,7 +49,7 @@ tryCatch(
 
         const adminName = await Tlauncher.getAccountName();
         await Java.applyServerIp(Zerotier.ip!, serverName);
-        await Java.start(serverName, ram);
+        await Java.start(serverName, ram, instance.version);
 
         if (!Java.process) return;
 
@@ -99,20 +99,31 @@ tryCatch(
       while (true) {
         let wasValid = await Tlauncher.isValidAccount();
         const inst = await App.getInstance(serverName);
-        const desc = inst?.owner !== "me"
-          ? `\nOwner: ${inst?.owner}`
-          : `\nYou can add mods and configs by just placing them in:\n"${join(GAME_DIR, "home", serverName)}"`
+        if (!inst) break;
 
-        const { value, cancelled } = await UI.list(
-          [
+        const ready = inst.state === "ready";
+        const desc = !ready
+          ? `\n${color("Setup incomplete", "warning")}`
+          : inst.owner !== "me"
+            ? `\nOwner: ${inst.owner}`
+            : `\nYou can add mods and configs by just placing them in:\n"${join(GAME_DIR, "home", serverName)}"`
+
+        const items: (string | ListItem)[] = ready
+          ? [
             { label: "/ Launch Instance", blocked: !wasValid },
             "_ Copy Invite string",
             "* Change Memory allocation",
             { value: "- Delete server", label: color("- Delete server", "error") },
-          ],
-          {
-            title: `Server Instance "${serverName.replace(/^0+/, "")}"`,
-            desc,
+          ]
+          : [
+            "> Continue setup",
+            { value: "- Delete server", label: color("- Delete server", "error") },
+          ];
+
+        const opts: Parameters<typeof UI.list>[1] = {
+          title: `${serverName.replace(/^0+/, "")} (${inst.version})`,
+          desc,
+          ...(ready ? {
             refresh: async () => {
               if (instanceError) {
                 log(instanceError, "error");
@@ -130,15 +141,19 @@ tryCatch(
                 { value: "- Delete server", label: color("- Delete server", "error") },
               ];
             },
-          }
-        );
+          } : {}),
+        };
+
+        const { value, cancelled } = await UI.list(items, opts);
+
+        if (value === "> Continue setup" && inst.state !== "ready") {
+          await finishServerSetup(serverName, inst.state, inst.version);
+          break;
+        }
         if (value === "_ Copy Invite string") {
-          const inst = await App.getInstance(serverName);
           if (inst?.inviteString) await App.copyToClipboard(inst.inviteString);
         }
         if (value === "* Change Memory allocation") {
-          const inst = await App.getInstance(serverName);
-
           const { value: newRam } = await UI.input({
             title: "Memory allocation",
             desc: `Enter amount of RAM in MB\nMinimum: ${Java.MIN_RAM_MB}MB | Maximum: ${Java.MAX_RAM_MB}MB`,
@@ -194,7 +209,7 @@ tryCatch(
 
         const { value, cancelled } = await UI.list(
           instances.map(i => {
-            const item: ListItem = { label: i.name.replace(/^0+/, ""), value: i.name };
+            const item: ListItem = { label: `${i.name.replace(/^0+/, "")} (${i.version})`, value: i.name };
             if (i.state !== "ready") {
               item.badge = "Not Ready";
             } else if (i.owner === "me") {
@@ -224,7 +239,7 @@ tryCatch(
           continue;
         }
 
-        await finishServerSetup(value, selected.state, selected.version);
+        await instanceEntryUi(value);
       }
     };
 

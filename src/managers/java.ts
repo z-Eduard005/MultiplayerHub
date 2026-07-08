@@ -3,8 +3,8 @@ import type { ChildProcessByStdio } from "child_process";
 import { Stream } from "stream";
 import { exists, run, log, throwErr, tryCatch, color } from "../utils";
 import { join } from "path";
-import { IS_WIN32, APP_NAME, APP_DIR, INSTANCES_DIR } from "../constants";
-import { mkdir, rename, rm, writeFile, readFile } from "fs/promises";
+import { IS_WIN32, APP_NAME, APP_DIR, INSTANCES_DIR, LINUX_SHELL } from "../constants";
+import { mkdir, rename, rm, writeFile, readFile, readdir } from "fs/promises";
 import { totalmem } from "os";
 import UI, { type ListItem } from "./ui";
 
@@ -21,28 +21,32 @@ type AdoptiumAsset = {
 
 export default class Java {
   static readonly DIR = join(APP_DIR, "jdk");
-
-  static MIN_RAM_MB = 2700;
-  static MAX_RAM_MB = 7168;
+  static readonly MIN_RAM_MB = 2700;
+  static readonly MAX_RAM_MB = 7168;
   private static readonly MAX_RAM_PERCENTAGE = 0.4;
-  static readonly PORT = "67676";
+  static readonly PORT = "25564";
   static process: ChildProcessByStdio<Stream.Writable, Stream.Readable, null> | null = null;
 
-  static async start(serverName: string, ram: number) {
+  static async start(serverName: string, ram: number, version: string) {
     log("Server is loading...", "info");
-    Java.process = await tryCatch(() => {
+    Java.process = await tryCatch(async () => {
+      const serverDir = join(INSTANCES_DIR, serverName, "server");
+      const files = await readdir(serverDir);
+      const serverJar = files.find(f => f.endsWith(".jar") && !f.includes("server"));
+      if (!serverJar) throwErr(`No jar file found in ${serverDir}`);
+
       return spawn(
-        "Java.FILE",
+        Java.getJavaPath(version),
         [
           `-Xmx${ram}M`,
           `-Xms${ram}M`,
           "-jar",
-          join(INSTANCES_DIR, serverName, "server", "server.jar (more letters i guess)"),
+          join(serverDir, serverJar!),
           "nogui",
         ],
         {
           stdio: ["pipe", "pipe", "inherit"],
-          cwd: APP_DIR,
+          cwd: serverDir,
           windowsHide: true,
         }
       );
@@ -232,7 +236,20 @@ export default class Java {
       const eulaPath = join(serverDir, "eula.txt");
       await writeFile(eulaPath, (await readFile(eulaPath, "utf8")).replace("eula=false", "eula=true"));
 
-      await run(`"${javaPath}" -jar "${jarName}" nogui <<< "stop"`, { cwd: serverDir, inherit: true });
+      const doneRegex = /\[minecraft\/DedicatedServer]: Done \(\d+\.\d+s\)!/;
+      const child = spawn(`"${javaPath}" -jar "${jarName}" nogui`, {
+        cwd: serverDir,
+        stdio: ['pipe', 'pipe', 'inherit'],
+        shell: IS_WIN32 ? true : LINUX_SHELL,
+        env: process.env,
+      });
+      child.stdout.on('data', (data) => {
+        if (doneRegex.test(data.toString())) child.stdin.write('stop\n');
+      });
+      await new Promise<void>((resolve, reject) => {
+        child.on('close', (code) => code === 0 ? resolve() : reject(new Error(`exit ${code}`)));
+        child.on('error', reject);
+      });
 
       const propsPath = join(serverDir, "server.properties");
       await writeFile(

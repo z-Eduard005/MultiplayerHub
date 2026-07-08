@@ -103,7 +103,7 @@ export const log = (msg: string, type?: LogType) => {
   return console.log(type ? color(msg, type) : msg);
 };
 
-export const throwErr = (msg?: string) => {
+export const throwErr = (msg?: string): never => {
   throw new Error(msg && color(msg.replace("Error: ", ""), "error"));
 };
 
