@@ -1,10 +1,11 @@
 import { createSocket, type Socket } from "dgram";
-import { log, throwErr, tryCatch } from "../utils";
+import { log, throwErr, tryCatch, run } from "../utils";
+import { IS_WIN32 } from "../constants";
 import Zerotier from "./zerotier";
 import Java from "./java";
 import Minecraft from "./minecraft";
 
-type BroadcastData = { type: string; ip: string }
+type BroadcastData = { type: string; ip: string; nickName: string | null; ztNetworkId: string | null }
 
 export default class Hosting {
   private static readonly BROADCAST_PORT = 42005;
@@ -20,8 +21,13 @@ export default class Hosting {
   private static hostFound = false;
   private static resolve: () => void;
   static ip: string | null = null;
+  static nickName: string | null = null;
+  static ztNetworkId: string | null = null;
 
-  static startMonitoring(serverName: string): Promise<void> {
+  static startMonitoring(
+    serverName: string,
+    onUpdate: (owner: string, ztNetworkId: string | null) => void
+  ): Promise<void> {
     return new Promise(async (resolve) => {
       Hosting.resolve = resolve;
       Hosting.hostFound = false;
@@ -34,6 +40,14 @@ export default class Hosting {
       Hosting.socket.on("message", (data) => {
         const msg = JSON.parse(data.toString()) as BroadcastData;
         if (msg.ip === Zerotier.ip) return;
+
+        const newNick = msg.nickName;
+        const newZtId = msg.ztNetworkId;
+        if (Hosting.nickName !== newNick || Hosting.ztNetworkId !== newZtId) {
+          Hosting.nickName = newNick;
+          Hosting.ztNetworkId = newZtId;
+          onUpdate(newNick ?? "", newZtId);
+        }
 
         if (!Hosting.hostFound) {
           Hosting.hostFound = true;
@@ -59,7 +73,7 @@ export default class Hosting {
 
       await tryCatch(
         () => Hosting.socket.bind(Hosting.BROADCAST_PORT),
-        `Port ${Hosting.BROADCAST_PORT} is already in use by ${Hosting.getPortOwner() || "another process"}`
+        `Port ${Hosting.BROADCAST_PORT} is already in use by ${await Hosting.getPortOwner() || "another process"}`
       );
 
       setTimeout(() => {
@@ -78,7 +92,12 @@ export default class Hosting {
     Hosting.heartBeatTimer = setInterval(async () => {
       await tryCatch(
         () => Hosting.socket.send(
-          Buffer.from(JSON.stringify({ type: "HEARTBEAT", ip: Zerotier.ip })),
+          Buffer.from(JSON.stringify({
+            type: "HEARTBEAT",
+            ip: Zerotier.ip,
+            nickName: Hosting.nickName,
+            ztNetworkId: Hosting.ztNetworkId,
+          })),
           Hosting.BROADCAST_PORT,
           Hosting.BROADCASTIP
         ),
@@ -103,7 +122,14 @@ export default class Hosting {
     clearInterval(Hosting.heartBeatTimer);
   }
 
-  private static getPortOwner(): string | null {
-    return null;
+  private static async getPortOwner(): Promise<string | null> {
+    try {
+      const out = await run(IS_WIN32
+        ? `netstat -ano | findstr ":${Hosting.BROADCAST_PORT}"`
+        : `ss -tulpn sport = :${Hosting.BROADCAST_PORT} 2>/dev/null`);
+      if (!out) return null;
+      if (IS_WIN32) return out.trim().split(/\s+/).pop() || null;
+      return out.match(/users:\(\([^,]+,(\d+)/)?.[1] || null;
+    } catch { return null; }
   }
 }

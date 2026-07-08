@@ -45,11 +45,12 @@ export default class UI {
   private static readonly FG = "\x1B[38;5;255m";
   private static readonly RST = "\x1B[39m\x1B[49m";
   private static readonly LOADER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-  static readonly START_ART = `╔═╦═╗     ╗  ╦        ╗                 ╦  ╦     ╦  
-║ ║ ║     ║  ║  o     ║                 ║  ║     ║  
-║ ║ ║ ╦ ╦ ║ ═╬═ ╦ ╔═╗ ║ ╔═╗ ╦ ╦ ╔═╗ ╦═╗ ╠══╣ ╦ ╦ ╠═╗
-║ ║ ║ ║ ║ ║  ║  ║ ║ ║ ║ ╔═╣ ║ ║ ╠═╝ ║   ║  ║ ║ ║ ║ ║
-╩ ╩ ╩ ╚═╝ ╩  ╚╝ ╩ ╠═╝ ╩ ╚═╚ ╚═╣ ╚═╝ ╩   ╩  ╩ ╚═╝ ╚═╝
+  static readonly START_ART = `
+╔═╦═╗     ╗  ╦        ╗                 ╦  ╦     ╦  
+║ ║ ║     ║  ║  o     ║                 ║  ║     ║   
+║ ║ ║ ╦ ╦ ║ ═╬═ ╦ ╔═╗ ║ ╔═╗ ╦ ╦ ╔═╗ ╦═╗ ╠══╣ ╦ ╦ ╠═╗ 
+║ ║ ║ ║ ║ ║  ║  ║ ║ ║ ║ ╔═╣ ║ ║ ╠═╝ ║   ║  ║ ║ ║ ║ ║ 
+╩ ╩ ╩ ╚═╝ ╩  ╚╝ ╩ ╠═╝ ╩ ╚═╚ ╚═╣ ╚═╝ ╩   ╩  ╩ ╚═╝ ╚═╝ 
                   ║           ║                      
                   ╩         ╚═╝                      `;
 
@@ -207,12 +208,18 @@ export default class UI {
 
       if (title) {
         const lines = title.includes("\n") ? title.split("\n") : UI.wrap(title, TITLE_WIDTH);
-        lines.forEach((l, i) => {
-          const indent = title.includes("\n")
-            ? " ".repeat(Math.max(0, Math.floor((UI.cols() - l.length) / 2)))
-            : " ".repeat(Math.max(0, Math.floor((UI.cols() - TITLE_WIDTH) / 2)));
-          contentLines.push(i === 0 ? `${indent}\x1B[1m${l}\x1B[22m` : `${indent}${l}`);
-        });
+        if (title.includes("\n")) {
+          const blockWidth = Math.max(...lines.map(l => l.length));
+          const indent = " ".repeat(Math.max(0, Math.floor((UI.cols() - blockWidth) / 2)));
+          lines.forEach((l) => {
+            contentLines.push(`${indent}${l}`);
+          });
+        } else {
+          lines.forEach((l, i) => {
+            const indent = " ".repeat(Math.max(0, Math.floor((UI.cols() - TITLE_WIDTH) / 2)));
+            contentLines.push(i === 0 ? `${indent}\x1B[1m${l}\x1B[22m` : `${indent}${l}`);
+          });
+        }
       }
       if (desc) {
         const lines = UI.wrap(desc, TITLE_WIDTH);

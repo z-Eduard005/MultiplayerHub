@@ -55,7 +55,7 @@ export default class GH {
 
       run(`${IS_WIN32 ? 'start ""' : "xdg-open"} "${GH.AUTH_URL}"`);
       await run(
-        'echo "\r" | gh auth login --web --clipboard --git-protocol https --skip-ssh-key',
+        'echo "\r" | gh auth login --web --clipboard --git-protocol https --skip-ssh-key --scopes "repo,delete_repo"',
         { inherit: true }
       );
 

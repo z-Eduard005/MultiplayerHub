@@ -3,7 +3,7 @@ import type { ChildProcessByStdio } from "child_process";
 import { Stream } from "stream";
 import { exists, run, log, throwErr, tryCatch, color } from "../utils";
 import { join } from "path";
-import { IS_WIN32, APP_NAME, APP_DIR, INSTANCES_DIR, LINUX_SHELL } from "../constants";
+import { IS_WIN32, APP_NAME, APP_DIR, INSTANCES_DIR, LINUX_SHELL, SERVER_READY_RGX } from "../constants";
 import { mkdir, rename, rm, writeFile, readFile, readdir } from "fs/promises";
 import { totalmem } from "os";
 import UI, { type ListItem } from "./ui";
@@ -236,7 +236,6 @@ export default class Java {
       const eulaPath = join(serverDir, "eula.txt");
       await writeFile(eulaPath, (await readFile(eulaPath, "utf8")).replace("eula=false", "eula=true"));
 
-      const doneRegex = /\[minecraft\/DedicatedServer]: Done \(\d+\.\d+s\)!/;
       const child = spawn(`"${javaPath}" -jar "${jarName}" nogui`, {
         cwd: serverDir,
         stdio: ['pipe', 'pipe', 'inherit'],
@@ -244,7 +243,7 @@ export default class Java {
         env: process.env,
       });
       child.stdout.on('data', (data) => {
-        if (doneRegex.test(data.toString())) child.stdin.write('stop\n');
+        if (SERVER_READY_RGX.test(data.toString())) child.stdin.write('stop\n');
       });
       await new Promise<void>((resolve, reject) => {
         child.on('close', (code) => code === 0 ? resolve() : reject(new Error(`exit ${code}`)));

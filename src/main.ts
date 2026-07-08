@@ -1,6 +1,6 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { CONFIG_FILE, GAME_DIR } from "./constants";
+import { CONFIG_FILE, GAME_DIR, SERVER_READY_RGX } from "./constants";
 import { log, tryCatch, throwErr, color } from "./utils";
 import UI, { type ListItem } from "./managers/ui";
 import Zerotier from "./managers/zerotier";
@@ -39,15 +39,21 @@ tryCatch(
         await Zerotier.start();
         await Zerotier.join(ztNetworkId);
 
-        await Tlauncher.chooseVersion(instance.version);
+        await Tlauncher.chooseVersion(serverName);
         await Tlauncher.open();
 
-        await Hosting.startMonitoring(serverName);
+        const adminName = await Tlauncher.getAccountName();
+        Hosting.nickName = adminName;
+        Hosting.ztNetworkId = ztNetworkId;
+        await Hosting.startMonitoring(serverName, (owner, ztNetworkId) => {
+          const patch: Partial<Instance> = { owner };
+          if (ztNetworkId !== null) patch.zerotierID = ztNetworkId;
+          App.updateInstance(serverName, patch);
+        });
 
         // await Git.serverFetch();
         // await Git.worldSync();
 
-        const adminName = await Tlauncher.getAccountName();
         await Java.applyServerIp(Zerotier.ip!, serverName);
         await Java.start(serverName, ram, instance.version);
 
@@ -70,8 +76,8 @@ tryCatch(
               Java.runMCCommand(`op ${adminName}`);
             }
 
-            if (data.includes("Unloading dimension 1")) {
-              log(`You have started the server on port: ${Zerotier.ip}:${Java.PORT}\nHave fun playing :)`, "success");
+            if (SERVER_READY_RGX.test(data)) {
+              log(`You have started the server on port: ${Zerotier.ip}:${Java.PORT}`, "success");
 
               Git.worldEnableRepeatedPush(serverName, instance.repoUrl ?? "");
             }
@@ -174,7 +180,7 @@ tryCatch(
         }
         if (value === "- Delete server") {
           const { value: confirm } = await UI.input({
-            title: `Are you sure you want to ${color("delete", "error")} "${serverName.replace(/^0+/, "")}"?`,
+            title: `Are you sure you want to ${color("DELETE", "error")} "${serverName.replace(/^0+/, "")}"?`,
             desc: "Type DELETE to confirm",
             maxLen: 50,
           });
