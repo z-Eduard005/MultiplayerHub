@@ -20,8 +20,27 @@ tryCatch(
 
     let instanceError: string | null = null;
 
+    const closeInstance = async (serverName: string, instance: Instance, ztNetworkId: string) => {
+      UI.stopBadge();
+
+      await Java.kill();
+
+      Git.worldDisableRepeatedPush();
+      if (Hosting.ip === Zerotier.ip && Git.worldInitialized) {
+        await tryCatch(
+          () => Git.syncWorld(serverName, instance.repoUrl ?? ""),
+          err => log(err, "error")
+        );
+      }
+      await Hosting.close();
+
+      await Zerotier.leave(ztNetworkId);
+    }
+
     const runInstance = async (serverName: string) => {
       UI.restoreMainScreen();
+      instanceError = null;
+      const closeFlag = { value: false };
 
       const config = await App.getConfig(CONFIG_FILE);
       const instances = (config["instances"] as Instance[]) ?? [];
@@ -59,17 +78,24 @@ tryCatch(
 
         if (!Java.process) return;
 
+        const closePoll = setInterval(() => {
+          if (closeFlag.value) {
+            clearInterval(closePoll);
+            Java.kill();
+          }
+        }, 200);
+
         await new Promise<void>((resolve) => {
           Java.process?.on("error", async (err) => {
             throwErr(`Error starting Java server. Check path to Java: ${Java.getJavaPath(instance.version)}\n${err}`);
           });
           Java.process?.on("close", async (code) => {
-            if (code !== 0) {
+            if (code !== 0 && !closeFlag.value) {
               throwErr(`Server terminated with an error (code: ${code})`);
             }
             resolve();
           });
-          Java.process?.stdout.on("data", async (data) => {
+          Java.process?.stdout.on("data", (data) => {
             process.stdout.write(data);
 
             if (data.includes(`${adminName} joined the game`)) {
@@ -78,26 +104,18 @@ tryCatch(
 
             if (SERVER_READY_RGX.test(data)) {
               log(`You have started the server on port: ${Zerotier.ip}:${Java.PORT}`, "success");
+              UI.startBadge("Close and Save Progress! (Ctrl+O)", closeFlag);
 
               Git.worldEnableRepeatedPush(serverName, instance.repoUrl ?? "");
             }
           });
         });
+
+        clearInterval(closePoll);
+        if (closeFlag.value) await closeInstance(serverName, instance, ztNetworkId);
       }, async (err) => {
         instanceError = err;
-
-        await Java.kill();
-
-        Git.worldDisableRepeatedPush();
-        if (Hosting.ip === Zerotier.ip && Git.worldInitialized) {
-          await tryCatch(
-            () => Git.syncWorld(serverName, instance.repoUrl ?? ""),
-            err => log(err, "error")
-          );
-        }
-        Hosting.disableKeepAlive();
-
-        await Zerotier.leave(ztNetworkId);
+        await closeInstance(serverName, instance, ztNetworkId);
       });
     };
 

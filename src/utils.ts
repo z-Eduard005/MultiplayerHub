@@ -100,7 +100,7 @@ export const color = (str: string, type: LogType) => {
 };
 
 export const log = (msg: string, type?: LogType) => {
-  return console.log(type ? color(msg, type) : msg);
+  return console.log(`\r${type ? color(msg, type) : msg}`);
 };
 
 export const throwErr = (msg?: string): never => {

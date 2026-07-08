@@ -1,9 +1,6 @@
 import { IS_WIN32, USER_DIR, APP_NAME } from "../constants";
 import { color, isSuccess, log, run, throwErr, tryCatch } from "../utils";
 import { createInterface } from "readline";
-import Git from "./git";
-import Java from "./java";
-import Hosting from "./hosting";
 import UI from "./ui";
 
 export default class Process {
@@ -105,10 +102,8 @@ export default class Process {
     if (Process.closing) return;
     Process.closing = true;
     UI.restoreMainScreen();
+    UI.stopBadge();
 
-    Git.worldDisableRepeatedPush();
-    await Java.kill();
-    Hosting.disableKeepAlive();
 
     await Process.pause();
     process.exit(0);

@@ -118,8 +118,16 @@ export default class Hosting {
     Hosting.staleTimer = setTimeout(() => Hosting.becomeHost(serverName), Hosting.STALE_TIMEOUT);
   }
 
-  static disableKeepAlive() {
-    clearInterval(Hosting.heartBeatTimer);
+  static close(): Promise<void> {
+    return new Promise((resolve) => {
+      clearInterval(Hosting.heartBeatTimer);
+      clearTimeout(Hosting.staleTimer);
+      clearTimeout(Hosting.confirmTimer);
+      Hosting.socket?.removeAllListeners("error");
+      try { Hosting.socket?.close(() => resolve()); } catch { resolve(); }
+      Hosting.ip = null;
+      Hosting.hostFound = false;
+    });
   }
 
   private static async getPortOwner(): Promise<string | null> {

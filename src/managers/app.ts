@@ -10,6 +10,7 @@ import {
   INSTANCES_DIR,
   CONFIG_FILE,
   VERSIONS_DIR,
+  GAME_DIR,
 } from "../constants";
 import { run, retryRun, log, throwErr, tryCatch, exists } from "../utils";
 import Zerotier from "./zerotier";
@@ -258,6 +259,10 @@ export default class App {
 
       await rm(join(INSTANCES_DIR, name), { recursive: true, force: true });
       await rm(join(VERSIONS_DIR, name), { recursive: true, force: true });
+
+      const instanceHomeDir = join(GAME_DIR, "home", name);
+      await rm(instanceHomeDir + "backup", { recursive: true, force: true });
+      await rename(instanceHomeDir, instanceHomeDir + "backup");
 
       const inst = instances.find(i => i.name === name);
       if (inst?.owner === "me") await GH.repoDelete(name);

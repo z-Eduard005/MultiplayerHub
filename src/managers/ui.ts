@@ -466,6 +466,44 @@ export default class UI {
     });
   }
 
+  private static badgeInterval: NodeJS.Timeout | null = null;
+  private static badgeFlag: { value: boolean } | null = null;
+  private static readonly badgeKeyHandler = (key: string) => {
+    if (key === "\u000f" && UI.badgeFlag) UI.badgeFlag.value = true;
+  };
+
+  static startBadge(text: string, flag?: { value: boolean }) {
+    UI.stopBadge();
+    UI.badgeFlag = flag ?? null;
+
+    process.stdout.write(`\x1B]0;${text}\x07`);
+
+    const draw = () => {
+      if (UI.altScreen) return;
+      const badge = `\x1B[44m\x1B[97m ${text} \x1B[39m\x1B[49m`;
+      const cols = UI.cols();
+      process.stdout.write(`\x1B7\x1B[1;${Math.max(1, cols - text.length - 1)}H${badge}\x1B8`);
+    };
+    draw();
+    UI.badgeInterval = setInterval(draw, 200);
+
+    try { process.stdin.setRawMode(true); } catch {}
+    process.stdin.resume();
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", UI.badgeKeyHandler);
+  }
+
+  static stopBadge() {
+    if (UI.badgeInterval) {
+      clearInterval(UI.badgeInterval);
+      UI.badgeInterval = null;
+    }
+    process.stdin.removeListener("data", UI.badgeKeyHandler);
+    try { process.stdin.setRawMode(false); } catch {}
+    process.stdout.write("\x1B]0;\x07");
+    UI.badgeFlag = null;
+  }
+
   static input(layoutOptions?: InputOptions): Promise<{ value: string; cancelled: boolean }> {
     const { defaultValue, maxLen, filter, validate, allowEmpty } = layoutOptions ?? {};
     return new Promise((resolve) => {
