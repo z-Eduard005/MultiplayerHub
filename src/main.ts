@@ -69,6 +69,7 @@ tryCatch(
         });
 
         if (closeFlag.value) {
+          if (Hosting.closeReason) instanceError = Hosting.closeReason;
           await closeInstance(serverName, instance, ztNetworkId);
           return;
         }

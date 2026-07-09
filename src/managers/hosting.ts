@@ -21,6 +21,8 @@ export default class Hosting {
   private static confirmTimer: NodeJS.Timeout | undefined;
   private static hostFound = false;
   private static closed = false;
+  private static closeFlag: { value: boolean } = { value: false };
+  static closeReason: string | null = null;
   private static resolve: () => void;
   static ip: string | null = null;
   static nickName: string | null = null;
@@ -35,11 +37,13 @@ export default class Hosting {
       Hosting.resolve = resolve;
       Hosting.hostFound = false;
       Hosting.closed = false;
+      Hosting.closeFlag = closeFlag;
+      Hosting.closeReason = null;
 
-      const closePoll = setInterval(async () => {
-        if (closeFlag.value) {
+      const closePoll = setInterval(() => {
+        if (Hosting.closeFlag.value) {
           clearInterval(closePoll);
-          await Hosting.close();
+          Hosting.cleanup();
           resolve();
         }
       }, 200);
@@ -73,7 +77,7 @@ export default class Hosting {
         if (!Hosting.hostFound) {
           Hosting.hostFound = true;
           Hosting.ip = msg.ip;
-          UI.startBadge("Leave Server (Ctrl+O)", closeFlag);
+          UI.startBadge("Leave Server (Ctrl+O)", Hosting.closeFlag);
           const fullIP = `${msg.ip}:${Java.PORT}`;
 
           log(`Someone is already playing on ${fullIP}`, "info");
@@ -107,17 +111,25 @@ export default class Hosting {
 
     clearInterval(Hosting.heartBeatTimer);
     Hosting.heartBeatTimer = setInterval(async () => {
-      await tryCatch(() => new Promise<void>((resolve, reject) => {
-        const heartbeat = instance.owner === "me"
-          ? { type: "HEARTBEAT", ip: Zerotier.ip, nickName: Hosting.nickName, ztNetworkId: Hosting.ztNetworkId }
-          : { type: "HEARTBEAT", ip: Zerotier.ip };
-        Hosting.socket.send(
-          Buffer.from(JSON.stringify(heartbeat)),
-          Hosting.BROADCAST_PORT,
-          Hosting.BROADCASTIP,
-          (err) => err ? reject(err) : resolve()
-        );
-      }), "Heartbeat broadcast failed (bad connection)");
+      await tryCatch(
+        () => new Promise<void>((resolve, reject) => {
+          const heartbeat = instance.owner === "me"
+            ? { type: "HEARTBEAT", ip: Zerotier.ip, nickName: Hosting.nickName, ztNetworkId: Hosting.ztNetworkId }
+            : { type: "HEARTBEAT", ip: Zerotier.ip };
+          Hosting.socket.send(
+            Buffer.from(JSON.stringify(heartbeat)),
+            Hosting.BROADCAST_PORT,
+            Hosting.BROADCASTIP,
+            (err) => err ? reject(err) : resolve()
+          );
+        }),
+        (err) => {
+          Hosting.closeReason = `Heartbeat broadcast failed (bad connection)\n${err}`;
+          Hosting.cleanup();
+          Hosting.closeFlag.value = true;
+          Hosting.resolve();
+        },
+      );
     }, Hosting.HEARTBEAT_INTERVAL);
 
     Hosting.confirmTimer = setTimeout(() => {
@@ -132,12 +144,16 @@ export default class Hosting {
     Hosting.staleTimer = setTimeout(() => Hosting.becomeHost(instance), Hosting.STALE_TIMEOUT);
   }
 
+  private static cleanup() {
+    clearInterval(Hosting.heartBeatTimer);
+    clearTimeout(Hosting.staleTimer);
+    clearTimeout(Hosting.confirmTimer);
+  }
+
   static close(): Promise<void> {
     return new Promise((resolve) => {
       Hosting.closed = true;
-      clearInterval(Hosting.heartBeatTimer);
-      clearTimeout(Hosting.staleTimer);
-      clearTimeout(Hosting.confirmTimer);
+      Hosting.cleanup();
       if (!Hosting.socket) { resolve(); return; }
       Hosting.socket.removeAllListeners("error");
       try { Hosting.socket.close(() => resolve()); } catch { resolve(); }
