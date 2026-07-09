@@ -63,8 +63,11 @@ tryCatch(
         Hosting.nickName = adminName;
         Hosting.ztNetworkId = ztNetworkId;
         await Hosting.startMonitoring(instance, closeFlag, (owner, ztNetworkId) => {
-          const patch: Partial<Instance> = { owner };
-          if (ztNetworkId !== null) patch.zerotierID = ztNetworkId;
+          const patch: Partial<Instance> = {};
+          if (instance.owner !== "me") {
+            if (instance.owner !== null) patch.owner = owner;
+            if (ztNetworkId !== null) patch.zerotierID = ztNetworkId;
+          }
           App.updateInstance(serverName, patch);
         });
 
@@ -160,7 +163,12 @@ tryCatch(
           break;
         }
         if (value === "_ Copy Invite string") {
-          if (inst?.inviteString) await App.copyToClipboard(inst.inviteString);
+          let invite = inst?.inviteString
+          if (!invite) {
+            invite = await App.generateInviteString(serverName);
+            await App.updateInstance(serverName, { inviteString: invite });
+          }
+          await App.copyToClipboard(invite);
         }
         if (value === "* Change Memory allocation") {
           const { value: newRam, cancelled } = await UI.input({
