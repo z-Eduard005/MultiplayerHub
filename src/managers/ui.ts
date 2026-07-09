@@ -479,8 +479,6 @@ export default class UI {
     UI.stopBadge();
     UI.badgeFlag = flag ?? null;
 
-    process.stdout.write(`\x1B]0;${text}\x07`);
-
     const draw = () => {
       if (UI.altScreen) return;
       const badge = `\x1B[44m\x1B[97m ${text} \x1B[39m\x1B[49m`;
@@ -503,7 +501,6 @@ export default class UI {
     }
     process.stdin.removeListener("data", UI.badgeKeyHandler);
     try { process.stdin.setRawMode(false); } catch { }
-    process.stdout.write("\x1B]0;\x07");
     UI.badgeFlag = null;
   }
 

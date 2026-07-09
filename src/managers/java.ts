@@ -21,9 +21,9 @@ type AdoptiumAsset = {
 
 export default class Java {
   static readonly DIR = join(APP_DIR, "jdk");
-  static readonly MIN_RAM_MB = 2700;
-  static readonly MAX_RAM_MB = 7168;
-  private static readonly MAX_RAM_PERCENTAGE = 0.4;
+  static readonly MIN_RAM_MB = 2048;
+  static readonly MAX_RAM_MB = Math.max(2048, Math.floor(totalmem() / 1024 / 1024) - 2048);
+  private static readonly SUGGESTED_RAM_PERCENTAGE = 0.25;
   static readonly PORT = "25564";
   static process: ChildProcessByStdio<Stream.Writable, Stream.Readable, null> | null = null;
 
@@ -185,8 +185,8 @@ export default class Java {
   }
 
   static getDefaultRam() {
-    const partOfRam = Math.floor((totalmem() / 1024 / 1024) * Java.MAX_RAM_PERCENTAGE);
-    return partOfRam > Java.MAX_RAM_MB ? Java.MAX_RAM_MB : partOfRam;
+    const suggested = Math.floor((totalmem() / 1024 / 1024) * Java.SUGGESTED_RAM_PERCENTAGE);
+    return Math.max(Java.MIN_RAM_MB, Math.min(suggested, Java.MAX_RAM_MB));
   }
 
   static async installServer(name: string, version: string) {
