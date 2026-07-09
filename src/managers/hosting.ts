@@ -4,6 +4,7 @@ import { IS_WIN32 } from "../constants";
 import Zerotier from "./zerotier";
 import Java from "./java";
 import Minecraft from "./minecraft";
+import UI from "./ui";
 import type { Instance } from "./app";
 type BroadcastData = { type: string; ip: string; nickName: string | null; ztNetworkId: string | null }
 
@@ -19,6 +20,7 @@ export default class Hosting {
   private static staleTimer: NodeJS.Timeout | undefined;
   private static confirmTimer: NodeJS.Timeout | undefined;
   private static hostFound = false;
+  private static closed = false;
   private static resolve: () => void;
   static ip: string | null = null;
   static nickName: string | null = null;
@@ -32,6 +34,7 @@ export default class Hosting {
     return new Promise(async (resolve) => {
       Hosting.resolve = resolve;
       Hosting.hostFound = false;
+      Hosting.closed = false;
 
       const closePoll = setInterval(async () => {
         if (closeFlag.value) {
@@ -49,8 +52,8 @@ export default class Hosting {
       Hosting.socket.on("listening", () => {
         Hosting.socket.setBroadcast(true);
         setTimeout(() => {
-          clearInterval(closePoll);
           if (Hosting.hostFound) return;
+          clearInterval(closePoll);
           Hosting.becomeHost(instance);
         }, Hosting.LISTEN_TIMEOUT);
       });
@@ -70,6 +73,7 @@ export default class Hosting {
         if (!Hosting.hostFound) {
           Hosting.hostFound = true;
           Hosting.ip = msg.ip;
+          UI.startBadge("Leave Server (Ctrl+O)", closeFlag);
           const fullIP = `${msg.ip}:${Java.PORT}`;
 
           log(`Someone is already playing on ${fullIP}`, "info");
@@ -97,7 +101,7 @@ export default class Hosting {
   }
 
   private static becomeHost(instance: Instance) {
-    if (Hosting.ip === Zerotier.ip) return;
+    if (Hosting.closed || Hosting.ip === Zerotier.ip) return;
 
     Hosting.ip = Zerotier.ip;
 
@@ -130,6 +134,7 @@ export default class Hosting {
 
   static close(): Promise<void> {
     return new Promise((resolve) => {
+      Hosting.closed = true;
       clearInterval(Hosting.heartBeatTimer);
       clearTimeout(Hosting.staleTimer);
       clearTimeout(Hosting.confirmTimer);
