@@ -4,6 +4,7 @@ import { IS_WIN32 } from "../constants";
 import Zerotier from "./zerotier";
 import Java from "./java";
 import Minecraft from "./minecraft";
+import UI from "./ui";
 
 type BroadcastData = { type: string; ip: string; nickName: string | null; ztNetworkId: string | null }
 
@@ -26,11 +27,20 @@ export default class Hosting {
 
   static startMonitoring(
     serverName: string,
+    closeFlag: { value: boolean },
     onUpdate: (owner: string, ztNetworkId: string | null) => void
   ): Promise<void> {
     return new Promise(async (resolve) => {
       Hosting.resolve = resolve;
       Hosting.hostFound = false;
+
+      const closePoll = setInterval(async () => {
+        if (closeFlag.value) {
+          clearInterval(closePoll);
+          await Hosting.close();
+          resolve();
+        }
+      }, 200);
 
       Hosting.socket = createSocket("udp4");
       Hosting.socket.on("error", (err) => {
@@ -51,10 +61,12 @@ export default class Hosting {
 
         if (!Hosting.hostFound) {
           Hosting.hostFound = true;
+          clearInterval(closePoll);
           Hosting.ip = msg.ip;
           const fullIP = `${msg.ip}:${Java.PORT}`;
 
           log(`Someone is already playing on ${fullIP}`, "info");
+          UI.startBadge("Leave Server (Ctrl+O)", closeFlag);
           Minecraft.addServer(fullIP, serverName);
           Hosting.continueMonitoring(serverName);
         } else if (Hosting.ip === msg.ip) {
@@ -77,6 +89,7 @@ export default class Hosting {
       );
 
       setTimeout(() => {
+        clearInterval(closePoll);
         if (Hosting.hostFound) return;
         Hosting.becomeHost(serverName);
       }, Hosting.LISTEN_TIMEOUT);

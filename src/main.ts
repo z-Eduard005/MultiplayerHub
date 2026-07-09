@@ -57,12 +57,12 @@ tryCatch(
         Zerotier.ip = Zerotier.getIP();
 
         await Tlauncher.chooseVersion(serverName);
-        await Tlauncher.open();
+        Tlauncher.open();
 
         const adminName = await Tlauncher.getAccountName();
         Hosting.nickName = adminName;
         Hosting.ztNetworkId = ztNetworkId;
-        await Hosting.startMonitoring(serverName, (owner, ztNetworkId) => {
+        await Hosting.startMonitoring(serverName, closeFlag, (owner, ztNetworkId) => {
           const patch: Partial<Instance> = { owner };
           if (ztNetworkId !== null) patch.zerotierID = ztNetworkId;
           App.updateInstance(serverName, patch);
@@ -119,7 +119,6 @@ tryCatch(
 
     const instanceEntryUi = async (serverName: string) => {
       while (true) {
-        let wasValid = await Tlauncher.isValidAccount();
         const inst = await App.getInstance(serverName);
         if (!inst) { instanceError = null; break; }
 
@@ -129,11 +128,11 @@ tryCatch(
           : inst.owner !== "me"
             ? `\nOwner: ${inst.owner}`
             : `\nYou can add mods and configs by just placing them in:\n"${join(GAME_DIR, "home", serverName)}"`
-        const footerText = instanceError ? color(instanceError, "error") : "";
+        const footerText = { label: instanceError ? `\n${color(instanceError, "error")}` : "", center: false };
 
         const items: (string | ListItem)[] = ready
           ? [
-            { label: "/ Launch Instance", blocked: !wasValid },
+            "/ Play on Server",
             "_ Copy Invite string",
             "* Change Memory allocation",
             { value: "- Delete server", label: color("- Delete server", "error") },
@@ -147,21 +146,6 @@ tryCatch(
           title: `${serverName.replace(/^0+/, "")} (${inst.version})`,
           desc,
           footerText,
-          ...(ready ? {
-            refresh: async () => {
-              const valid = await Tlauncher.isValidAccount();
-              if (!valid && wasValid) {
-                log("You should choose microsoft or ely.by account in tlauncher for plaing!", "warning");
-              }
-              wasValid = valid;
-              return [
-                { label: "/ Launch Instance", blocked: !valid },
-                "_ Copy Invite string",
-                "* Change Memory allocation",
-                { value: "- Delete server", label: color("- Delete server", "error") },
-              ];
-            },
-          } : {}),
         };
 
         const { value, cancelled } = await UI.list(items, opts);
@@ -190,7 +174,12 @@ tryCatch(
           if (!value) continue;
           await App.updateInstance(serverName, { ram: Number(value) });
         }
-        if (value === "/ Launch Instance") {
+        if (value === "/ Play on Server") {
+          const valid = await Tlauncher.isValidAccount();
+          if (!valid) {
+            instanceError = 'You should choose microsoft or ely.by account in tlauncher and press "Play" once!';
+            continue;
+          }
           await runInstance(serverName);
         }
         if (value === "- Delete server") {
@@ -231,7 +220,7 @@ tryCatch(
 
         const { value, cancelled } = await UI.list(
           instances.map(i => {
-            const item: ListItem = { label: `] ${i.name.replace(/^0+/, "")} (${i.version})`, value: i.name };
+            const item: ListItem = { label: `| ${i.name.replace(/^0+/, "")} (${i.version})`, value: i.name };
             if (i.state !== "ready") {
               item.badge = "Not Ready";
             } else if (i.owner === "me") {
@@ -349,6 +338,8 @@ tryCatch(
 
             if (cancelled) { step = 0; break; }
             serverName = value;
+            const validAccount = await Tlauncher.isValidAccount();
+            if (!validAccount) throwErr('You should choose microsoft or ely.by account in tlauncher and press "Play" once!');
 
             step = 2;
           }

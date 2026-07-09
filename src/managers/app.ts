@@ -278,6 +278,8 @@ export default class App {
 
       const networkId = instance!.zerotierID ?? config["zerotierID"] as string;
 
+      const validAccount = await Tlauncher.isValidAccount();
+      if (!validAccount) throwErr('You should choose microsoft or ely.by account in tlauncher and press "Play" once!');
       const nickName = instance!.owner !== "me" ? instance!.owner : await Tlauncher.getAccountName();
 
       const deployKeyPath = join(INSTANCES_DIR, serverName, "deploy_key");
@@ -333,7 +335,7 @@ export default class App {
   static async copyToClipboard(text: string) {
     await tryCatch(async () => {
       if (IS_WIN32) {
-        await run(`echo ${text} | clip`);
+        run(`powershell -NoProfile -NonInteractive -Command "Set-Clipboard -Value '${text}'"`);
       } else {
         run(`wl-copy "${text}"`);
       }

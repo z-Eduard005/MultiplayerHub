@@ -97,7 +97,6 @@ export default class Java {
     const dir = join(Java.DIR, `jdk${ver}`);
     if (await exists(join(dir, "bin", IS_WIN32 ? "java.exe" : "java"))) return;
 
-    log(`Installing Java ${ver}...`, "info");
     await rm(dir, { recursive: true, force: true });
 
     const os = IS_WIN32 ? "windows" : "linux";
@@ -145,7 +144,6 @@ export default class Java {
 
     await rm(dir, { recursive: true, force: true });
     await rename(tmpDir, dir);
-    log(`Java ${ver} installed at ${dir}`, "success");
   }
 
   static getJavaPath(version: string) {

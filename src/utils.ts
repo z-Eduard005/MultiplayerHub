@@ -129,3 +129,8 @@ export const randomNum = (length: number) => {
 export const sudo = (cmd: string) => {
   return IS_WIN32 ? cmd : `sudo ${cmd}`;
 };
+
+export const pasteFromClipboard = async (): Promise<string> => {
+  if (!IS_WIN32) return "";
+  return await run(`powershell -NoProfile -NonInteractive -Command "Get-Clipboard"`);
+};

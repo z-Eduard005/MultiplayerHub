@@ -1,3 +1,5 @@
+import { pasteFromClipboard } from "../utils";
+
 type LayoutOptions = {
   title?: string;
   desc?: string;
@@ -17,7 +19,7 @@ type ListOptions = LayoutOptions & {
   refresh?: () => Promise<(string | ListItem)[]>;
   defaultValue?: number;
   lockable?: boolean;
-  footerText?: string;
+  footerText?: string | { label: string; center?: boolean };
 }
 
 export type ListItem = {
@@ -375,8 +377,9 @@ export default class UI {
         const hintIndent = " ".repeat(Math.max(0, Math.floor((UI.cols() - hint.length) / 2)));
         const listLines = [(searchVisible ? searchLine : emptyLine), ...itemLines, emptyLine, `${hintIndent}\x1B[2m${hint}\x1B[22m`];
         if (layoutOptions?.footerText) {
-          const f = layoutOptions.footerText;
-          const fi = " ".repeat(Math.max(0, Math.floor((UI.cols() - f.length) / 2)));
+          const f = typeof layoutOptions.footerText === "string" ? layoutOptions.footerText : layoutOptions.footerText.label;
+          const center = typeof layoutOptions.footerText === "string" ? true : (layoutOptions.footerText.center ?? true);
+          const fi = center ? " ".repeat(Math.max(0, Math.floor((UI.cols() - f.length) / 2))) : "";
           listLines.push(`${fi}\x1B[2m${f}\x1B[22m`);
         }
         return listLines.join("\n");
@@ -569,7 +572,23 @@ export default class UI {
       const { cleanup, rerender } = UI.render(draw, (key) => keyHandler(key), layoutOptions);
 
       keyHandler = (key) => {
-        if (key === "\x16") return;
+        if (key === "\x16") {
+          pasteFromClipboard().then(paste => {
+            if (!paste) return;
+            const sanitized = [...paste].filter(c => {
+              const code = c.charCodeAt(0);
+              return code >= 33 && code <= 126 && (!filter || filter.test(c));
+            }).join("");
+            const available = MAX_LEN - value.length;
+            const sliced = sanitized.slice(0, available);
+            if (sliced.length > 0) {
+              value = value.slice(0, cursorPos) + sliced + value.slice(cursorPos);
+              cursorPos += sliced.length;
+              rerender();
+            }
+          });
+          return;
+        }
         if (key === "\u001b") {
           cleanup();
           resolve({ value, cancelled: true });
