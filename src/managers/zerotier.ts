@@ -82,6 +82,24 @@ export default class Zerotier {
     await tryCatch(async () => await run(sudo(`"${Zerotier.FILE}" leave ${id}`), { inherit: true }))
   }
 
+  static async leaveAll() {
+    const out = await tryCatch(
+      async () => run(sudo(`"${Zerotier.FILE}" listnetworks`)),
+      "Failed to list zerotier networks"
+    );
+    if (!out) return;
+
+    for (const line of out.split("\n")) {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 8) continue;
+      const nwid = parts[2];
+      const ips = parts.slice(7).flatMap(p => p.split(","));
+      if (!ips.some(ip => ip.startsWith(Zerotier.START_IP))) continue;
+      log(`Leaving stale network ${nwid}...`, "info");
+      await Zerotier.leave(nwid!);
+    }
+  }
+
   static getIP() {
     const ip = Object.values(networkInterfaces()).flat().find(
       (interf) => {

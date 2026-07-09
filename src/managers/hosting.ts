@@ -6,7 +6,7 @@ import Java from "./java";
 import Minecraft from "./minecraft";
 import UI from "./ui";
 import type { Instance } from "./app";
-type BroadcastData = { type: string; ip: string; nickName: string | null; ztNetworkId: string | null }
+type BroadcastData = { type: string; ip: string; nickName: string | null; ztNetworkId: string | null; instanceId: string | null }
 
 export default class Hosting {
   private static readonly BROADCAST_PORT = 42005;
@@ -65,6 +65,7 @@ export default class Hosting {
       Hosting.socket.on("message", (data) => {
         const msg = JSON.parse(data.toString()) as BroadcastData;
         if (msg.ip === Zerotier.ip) return;
+        if (msg.instanceId !== instance.id) return;
 
         const newNick = msg.nickName;
         const newZtId = msg.ztNetworkId;
@@ -114,8 +115,8 @@ export default class Hosting {
       await tryCatch(
         () => new Promise<void>((resolve, reject) => {
           const heartbeat = instance.owner === "me"
-            ? { type: "HEARTBEAT", ip: Zerotier.ip, nickName: Hosting.nickName, ztNetworkId: Hosting.ztNetworkId }
-            : { type: "HEARTBEAT", ip: Zerotier.ip };
+            ? { type: "HEARTBEAT", ip: Zerotier.ip, nickName: Hosting.nickName, ztNetworkId: Hosting.ztNetworkId, instanceId: instance.id }
+            : { type: "HEARTBEAT", ip: Zerotier.ip, instanceId: instance.id };
           Hosting.socket.send(
             Buffer.from(JSON.stringify(heartbeat)),
             Hosting.BROADCAST_PORT,

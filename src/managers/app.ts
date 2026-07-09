@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { join, basename, normalize } from "path";
 import { copyFile, readFile, writeFile, mkdir, rename, rm, readdir } from "fs/promises";
 import {
@@ -29,6 +30,7 @@ type GithubRelease = {
 }
 
 export type Instance = {
+  id: string;
   name: string;
   owner: string;
   state: "init" | "installed" | "ready";
@@ -200,6 +202,7 @@ export default class App {
     await Java.installAll();
     await GH.install();
     await Zerotier.install();
+    await Zerotier.leaveAll();
 
     const config = await App.getConfig(CONFIG_FILE);
     if (!config["zerotierID"]) {
@@ -230,7 +233,7 @@ export default class App {
     const config = await App.getConfig(CONFIG_FILE);
     const instances = (config["instances"] as Instance[]) ?? [];
     const zerotierID = config["zerotierID"] as string | undefined;
-    const entry: Instance = { name: serverName, owner: "me", state: "init", version: serverVersion };
+    const entry: Instance = { id: randomUUID(), name: serverName, owner: "me", state: "init", version: serverVersion };
     if (zerotierID) entry.zerotierID = zerotierID;
     instances.push(entry);
     await App.putConfig(CONFIG_FILE, { instances });
@@ -291,6 +294,7 @@ export default class App {
       if (!mcVersion) throwErr(`Error: Missing "version" for instance "${serverName}"`);
 
       const data = {
+        id: instance!.id,
         networkId,
         nickName,
         serverName,
@@ -307,8 +311,8 @@ export default class App {
     return await tryCatch(async () => {
       const raw = Buffer.from(invite, "base64").toString("utf8");
       const data = JSON.parse(raw);
-      const { networkId, nickName, serverName, privateKey, repoUrl, mcVersion } = data;
-      if (!networkId || !nickName || !serverName || !privateKey || !repoUrl || !mcVersion) {
+      const { id, networkId, nickName, serverName, privateKey, repoUrl, mcVersion } = data;
+      if (!id || !networkId || !nickName || !serverName || !privateKey || !repoUrl || !mcVersion) {
         throwErr("Invalid invite string: missing required fields");
       }
 
@@ -320,6 +324,7 @@ export default class App {
       await writeFile(join(INSTANCES_DIR, name, "deploy_key"), privateKey, "utf8");
 
       const entry: Instance = {
+        id,
         name,
         owner: nickName,
         state: "ready",
