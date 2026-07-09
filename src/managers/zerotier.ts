@@ -53,22 +53,29 @@ export default class Zerotier {
 
   static async join(id: string) {
     log("Joining zerotier network...", "info");
-    const networks = await tryCatch(async () => {
-      await run(
-        sudo(`"${Zerotier.FILE}" join ${id}`),
-        { inherit: true }
-      );
+    const getNetworks = async () => {
+      return await tryCatch(async () => {
+        await run(
+          sudo(`"${Zerotier.FILE}" join ${id}`),
+          { inherit: true }
+        );
+        await setTimeoutPromise(Zerotier.CMD_TIMEOUT);
+
+        return await run(sudo(`"${Zerotier.FILE}" listnetworks`));
+      }, "Failed to join zerotier network");
+    }
+
+    if ((await getNetworks()).includes("REQUESTING_CONFIGURATION")) {
       await setTimeoutPromise(Zerotier.CMD_TIMEOUT);
+    }
 
-      return await run(sudo(`"${Zerotier.FILE}" listnetworks`));
-    }, "Failed to join zerotier network");
-
+    const networks = await getNetworks();
     if (
       networks.includes("ACCESS_DENIED") ||
       networks.includes("REQUESTING_CONFIGURATION") ||
       !networks.includes("PRIVATE")
     )
-      throwErr("Zerotier authorization failed (contact with admin of the server!)");
+      throwErr("Zerotier authorization failed (contact with admin of the server or try again!)");
   }
 
   static async leave(id: string) {

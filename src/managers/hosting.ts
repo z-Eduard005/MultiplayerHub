@@ -4,6 +4,7 @@ import { IS_WIN32 } from "../constants";
 import Zerotier from "./zerotier";
 import Java from "./java";
 import Minecraft from "./minecraft";
+import type { Instance } from "./app";
 type BroadcastData = { type: string; ip: string; nickName: string | null; ztNetworkId: string | null }
 
 export default class Hosting {
@@ -24,7 +25,7 @@ export default class Hosting {
   static ztNetworkId: string | null = null;
 
   static startMonitoring(
-    serverName: string,
+    instance: Instance,
     closeFlag: { value: boolean },
     onUpdate: (owner: string, ztNetworkId: string | null) => void
   ): Promise<void> {
@@ -50,7 +51,7 @@ export default class Hosting {
         setTimeout(() => {
           clearInterval(closePoll);
           if (Hosting.hostFound) return;
-          Hosting.becomeHost(serverName);
+          Hosting.becomeHost(instance);
         }, Hosting.LISTEN_TIMEOUT);
       });
 
@@ -72,10 +73,10 @@ export default class Hosting {
           const fullIP = `${msg.ip}:${Java.PORT}`;
 
           log(`Someone is already playing on ${fullIP}`, "info");
-          Minecraft.addServer(fullIP, serverName);
-          Hosting.continueMonitoring(serverName);
+          Minecraft.addServer(fullIP, instance.name);
+          Hosting.continueMonitoring(instance);
         } else if (Hosting.ip === msg.ip) {
-          Hosting.continueMonitoring(serverName);
+          Hosting.continueMonitoring(instance);
         } else if (Hosting.ip === Zerotier.ip && msg.ip < Zerotier.ip!) {
           clearInterval(Hosting.heartBeatTimer);
           clearTimeout(Hosting.confirmTimer);
@@ -83,8 +84,8 @@ export default class Hosting {
           const fullIP = `${msg.ip}:${Java.PORT}`;
 
           log(`Reconecting to new host on ${fullIP}`, "info");
-          Minecraft.addServer(fullIP, serverName);
-          Hosting.continueMonitoring(serverName);
+          Minecraft.addServer(fullIP, instance.name);
+          Hosting.continueMonitoring(instance);
         }
       });
 
@@ -95,38 +96,36 @@ export default class Hosting {
     });
   }
 
-  private static becomeHost(serverName: string) {
+  private static becomeHost(instance: Instance) {
     if (Hosting.ip === Zerotier.ip) return;
 
     Hosting.ip = Zerotier.ip;
 
     clearInterval(Hosting.heartBeatTimer);
     Hosting.heartBeatTimer = setInterval(async () => {
-      await tryCatch(
-        () => Hosting.socket.send(
-          Buffer.from(JSON.stringify({
-            type: "HEARTBEAT",
-            ip: Zerotier.ip,
-            nickName: Hosting.nickName,
-            ztNetworkId: Hosting.ztNetworkId,
-          })),
+      await tryCatch(() => new Promise<void>((resolve, reject) => {
+        const heartbeat = instance.owner === "me"
+          ? { type: "HEARTBEAT", ip: Zerotier.ip, nickName: Hosting.nickName, ztNetworkId: Hosting.ztNetworkId }
+          : { type: "HEARTBEAT", ip: Zerotier.ip };
+        Hosting.socket.send(
+          Buffer.from(JSON.stringify(heartbeat)),
           Hosting.BROADCAST_PORT,
-          Hosting.BROADCASTIP
-        ),
-        "Hosting connection error (bad internet)"
-      );
+          Hosting.BROADCASTIP,
+          (err) => err ? reject(err) : resolve()
+        );
+      }), "Heartbeat broadcast failed (bad connection)");
     }, Hosting.HEARTBEAT_INTERVAL);
 
     Hosting.confirmTimer = setTimeout(() => {
       log("Wait, you will be the host now...", "info");
-      Minecraft.addServer(`${Zerotier.ip}:${Java.PORT}`, serverName);
+      Minecraft.addServer(`${Zerotier.ip}:${Java.PORT}`, instance.name);
       Hosting.resolve();
     }, Hosting.CONFIRM_TIMEOUT);
   }
 
-  private static continueMonitoring(serverName: string) {
+  private static continueMonitoring(instance: Instance) {
     clearTimeout(Hosting.staleTimer);
-    Hosting.staleTimer = setTimeout(() => Hosting.becomeHost(serverName), Hosting.STALE_TIMEOUT);
+    Hosting.staleTimer = setTimeout(() => Hosting.becomeHost(instance), Hosting.STALE_TIMEOUT);
   }
 
   static close(): Promise<void> {

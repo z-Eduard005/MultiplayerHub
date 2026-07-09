@@ -62,7 +62,7 @@ tryCatch(
         const adminName = await Tlauncher.getAccountName();
         Hosting.nickName = adminName;
         Hosting.ztNetworkId = ztNetworkId;
-        await Hosting.startMonitoring(serverName, closeFlag, (owner, ztNetworkId) => {
+        await Hosting.startMonitoring(instance, closeFlag, (owner, ztNetworkId) => {
           const patch: Partial<Instance> = { owner };
           if (ztNetworkId !== null) patch.zerotierID = ztNetworkId;
           App.updateInstance(serverName, patch);
