@@ -68,8 +68,6 @@ tryCatch(
           App.updateInstance(serverName, patch);
         });
 
-        if (closeFlag.value) return await closeInstance(serverName, instance, ztNetworkId);
-
         // await Git.serverFetch();
         // await Git.worldSync();
 

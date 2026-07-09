@@ -54,7 +54,7 @@ export default class Minecraft {
         await rm(serversBakFile, { force: true });
         await writeFile(serversFile, Minecraft.serverToNBT(ip, name), "utf8");
       },
-      `The server was not added to the Minecraft menu automatically (incorrect path: ${serversFile})`,
+      `The server was not added to the Minecraft menu automatically (try to run "${name}" client at least once)`,
       true
     );
   }

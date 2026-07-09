@@ -4,8 +4,6 @@ import { IS_WIN32 } from "../constants";
 import Zerotier from "./zerotier";
 import Java from "./java";
 import Minecraft from "./minecraft";
-import UI from "./ui";
-
 type BroadcastData = { type: string; ip: string; nickName: string | null; ztNetworkId: string | null }
 
 export default class Hosting {
@@ -47,6 +45,15 @@ export default class Hosting {
         throwErr(`Zerotier Socket error (check your connection): ${err.message}`);
       });
 
+      Hosting.socket.on("listening", () => {
+        Hosting.socket.setBroadcast(true);
+        setTimeout(() => {
+          clearInterval(closePoll);
+          if (Hosting.hostFound) return;
+          Hosting.becomeHost(serverName);
+        }, Hosting.LISTEN_TIMEOUT);
+      });
+
       Hosting.socket.on("message", (data) => {
         const msg = JSON.parse(data.toString()) as BroadcastData;
         if (msg.ip === Zerotier.ip) return;
@@ -61,12 +68,10 @@ export default class Hosting {
 
         if (!Hosting.hostFound) {
           Hosting.hostFound = true;
-          clearInterval(closePoll);
           Hosting.ip = msg.ip;
           const fullIP = `${msg.ip}:${Java.PORT}`;
 
           log(`Someone is already playing on ${fullIP}`, "info");
-          UI.startBadge("Leave Server (Ctrl+O)", closeFlag);
           Minecraft.addServer(fullIP, serverName);
           Hosting.continueMonitoring(serverName);
         } else if (Hosting.ip === msg.ip) {
@@ -87,12 +92,6 @@ export default class Hosting {
         () => Hosting.socket.bind(Hosting.BROADCAST_PORT),
         `Port ${Hosting.BROADCAST_PORT} is already in use by ${await Hosting.getPortOwner() || "another process"}`
       );
-
-      setTimeout(() => {
-        clearInterval(closePoll);
-        if (Hosting.hostFound) return;
-        Hosting.becomeHost(serverName);
-      }, Hosting.LISTEN_TIMEOUT);
     });
   }
 
@@ -115,7 +114,6 @@ export default class Hosting {
           Hosting.BROADCASTIP
         ),
         "Hosting connection error (bad internet)"
-
       );
     }, Hosting.HEARTBEAT_INTERVAL);
 
@@ -136,8 +134,9 @@ export default class Hosting {
       clearInterval(Hosting.heartBeatTimer);
       clearTimeout(Hosting.staleTimer);
       clearTimeout(Hosting.confirmTimer);
-      Hosting.socket?.removeAllListeners("error");
-      try { Hosting.socket?.close(() => resolve()); } catch { resolve(); }
+      if (!Hosting.socket) { resolve(); return; }
+      Hosting.socket.removeAllListeners("error");
+      try { Hosting.socket.close(() => resolve()); } catch { resolve(); }
       Hosting.ip = null;
       Hosting.hostFound = false;
     });

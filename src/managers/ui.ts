@@ -356,7 +356,7 @@ export default class UI {
             const fg = isSelected ? SEL_FG : UI.FG;
 
             const plain = l.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "");
-            const BADGE_STYLE = item.badgeColor === "green" ? "\x1B[47m\x1B[32m\x1B[1m" : item.badgeColor === "yellow" ? "\x1B[33m\x1B[1m" : "\x1B[48;5;196m\x1B[38;5;255m";
+            const BADGE_STYLE = item.badgeColor === "green" ? "\x1B[32m\x1B[1m" : item.badgeColor === "yellow" ? "\x1B[33m\x1B[1m" : "\x1B[48;5;196m\x1B[38;5;255m";
             const displayBadge = item.badge || (item.blocked ? "locked" : undefined);
             const truncatedBadge = displayBadge && displayBadge.length > 10 ? displayBadge.slice(0, 10) + "..." : displayBadge;
             const badgeText = truncatedBadge && i === 0 ? ` ${BADGE_STYLE}${truncatedBadge}${bg}${fg}` : "";
@@ -490,7 +490,7 @@ export default class UI {
     draw();
     UI.badgeInterval = setInterval(draw, 200);
 
-    try { process.stdin.setRawMode(true); } catch {}
+    try { process.stdin.setRawMode(true); } catch { }
     process.stdin.resume();
     process.stdin.setEncoding("utf8");
     process.stdin.on("data", UI.badgeKeyHandler);
@@ -502,7 +502,7 @@ export default class UI {
       UI.badgeInterval = null;
     }
     process.stdin.removeListener("data", UI.badgeKeyHandler);
-    try { process.stdin.setRawMode(false); } catch {}
+    try { process.stdin.setRawMode(false); } catch { }
     process.stdout.write("\x1B]0;\x07");
     UI.badgeFlag = null;
   }
