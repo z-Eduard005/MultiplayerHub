@@ -130,16 +130,17 @@ tryCatch(
             : `\nYou can add mods and configs by just placing them in:\n"${join(GAME_DIR, "home", serverName)}"`
         const footerText = { label: instanceError ? `\n${color(instanceError, "error")}` : "", center: false };
 
+        const deleteLabel = inst.owner === "me" ? "Delete" : "Remove";
         const items: (string | ListItem)[] = ready
           ? [
             "/ Play on Server",
             "_ Copy Invite string",
             "* Change Memory allocation",
-            { value: "- Delete server", label: color("- Delete server", "error") },
+            { value: "- Delete server", label: color(`- ${deleteLabel} server`, "error") },
           ]
           : [
             "> Continue setup",
-            { value: "- Delete server", label: color("- Delete server", "error") },
+            { value: "- Delete server", label: color(`- ${deleteLabel} server`, "error") },
           ];
 
         const opts: Parameters<typeof UI.list>[1] = {
@@ -159,7 +160,7 @@ tryCatch(
           if (inst?.inviteString) await App.copyToClipboard(inst.inviteString);
         }
         if (value === "* Change Memory allocation") {
-          const { value: newRam } = await UI.input({
+          const { value: newRam, cancelled } = await UI.input({
             title: "Memory allocation",
             desc: `Enter amount of RAM in MB\nMinimum: ${Java.MIN_RAM_MB}MB | Maximum: ${Java.MAX_RAM_MB}MB`,
             defaultValue: String(inst?.ram ?? Java.getDefaultRam()),
@@ -170,6 +171,7 @@ tryCatch(
                 : null;
             },
           });
+          if (cancelled) continue;
           const value = newRam.trim();
           if (!value) continue;
           await App.updateInstance(serverName, { ram: Number(value) });
@@ -183,11 +185,12 @@ tryCatch(
           await runInstance(serverName);
         }
         if (value === "- Delete server") {
-          const { value: confirm } = await UI.input({
+          const { value: confirm, cancelled } = await UI.input({
             title: `Are you sure you want to ${color("DELETE", "error")} "${serverName.replace(/^0+/, "")}"?`,
             desc: "Type DELETE to confirm",
             maxLen: 50,
           });
+          if (cancelled) continue;
           if (confirm === "DELETE") {
             await App.removeInstance(serverName);
             instanceError = null;
@@ -327,12 +330,12 @@ tryCatch(
 
             const { value, cancelled } = await UI.input({
               title: `${color("[1/3]:", "info")} Server creation...`,
-              filter: /[a-zA-Z_-]/,
+              filter: /[a-z_-]/,
               desc: "Type a name for your server instance",
               defaultValue: serverName,
               validate: (name) => {
                 if (name.length > 20) return "Server name too long (max 20)";
-                return existing.some(i => i.name === name) ? "This server name already exists" : null;
+                return existing.some(i => i.name.toLowerCase() === name.toLowerCase()) ? "This server name already exists" : null;
               }
             });
 

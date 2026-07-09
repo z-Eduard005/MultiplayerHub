@@ -262,7 +262,7 @@ export default class App {
 
       const instanceHomeDir = join(GAME_DIR, "home", name);
       await rm(instanceHomeDir + "backup", { recursive: true, force: true });
-      await rename(instanceHomeDir, instanceHomeDir + "backup");
+      if (await exists(instanceHomeDir)) await rename(instanceHomeDir, instanceHomeDir + "backup");
 
       const inst = instances.find(i => i.name === name);
       if (inst?.owner === "me") await GH.repoDelete(name);
@@ -314,7 +314,8 @@ export default class App {
 
       const config = await App.getConfig(CONFIG_FILE);
       const instances = (config["instances"] as Instance[]) ?? [];
-      const name = instances.some(i => i.name === serverName) ? "0" + serverName : serverName;
+      let name = serverName;
+      while (instances.some(i => i.name === name)) name = "0" + name;
       await mkdir(join(INSTANCES_DIR, name), { recursive: true });
       await writeFile(join(INSTANCES_DIR, name, "deploy_key"), privateKey, "utf8");
 

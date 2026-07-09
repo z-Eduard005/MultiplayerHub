@@ -591,7 +591,7 @@ export default class UI {
         }
         if (key === "\u001b") {
           cleanup();
-          resolve({ value, cancelled: true });
+          resolve({ value: "", cancelled: true });
           return;
         }
         if (key === "\r" || key === "\r\n") {
