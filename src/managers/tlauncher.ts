@@ -102,7 +102,7 @@ export default class Tlauncher {
       async () => {
         await run(
           IS_WIN32
-            ? `taskkill /f /im "${Tlauncher.FILENAME}" 2>nul & taskkill /f /fi "WINDOWTITLE eq *Legacy*" /im javaw.exe 2>nul || ver>nul`
+            ? `taskkill /f /fi "WINDOWTITLE eq Legacy*" /im javaw.exe 2>nul || ver>nul`
             : `ps aux | grep '[t]launcher' | grep ${Tlauncher.FILENAME.split(".")[0]}.exe | awk '{print $2}' | xargs -r kill`,
         );
         spawn(Tlauncher.FILE, {

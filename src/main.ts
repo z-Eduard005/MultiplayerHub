@@ -1,6 +1,6 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { CONFIG_FILE, GAME_DIR, SERVER_READY_RGX } from "./constants";
+import { CONFIG_FILE, GAME_DIR, IS_WIN32, SERVER_READY_RGX } from "./constants";
 import { log, tryCatch, throwErr, color } from "./utils";
 import UI, { type ListItem } from "./managers/ui";
 import Zerotier from "./managers/zerotier";
@@ -421,7 +421,7 @@ tryCatch(
           .map(i => i.inviteString);
 
         const { value: invite, cancelled } = await UI.input({
-          title: "Paste invite string",
+          title: `Paste invite string (${IS_WIN32 ? "Ctrl+V" : "Ctrl+Shift+V"})`,
           desc: "Ask the server creator for an invite string",
           maxLen: 2048,
           validate: (v: string) => {

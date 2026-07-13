@@ -172,10 +172,12 @@ export default class UI {
       UI.loaderInterval = null;
     }
     if (UI.altScreen) {
-      process.stdout.removeAllListeners("resize");
-      process.stdin.removeAllListeners("data");
-      try { process.stdin.setRawMode(false); } catch { }
-      process.stdout.write("\x1B[?1049l\x1B[?25h");
+      try {
+        process.stdout.removeAllListeners("resize");
+        process.stdin.removeAllListeners("data");
+        process.stdin.setRawMode(false);
+        process.stdout.write("\x1B[?1049l\x1B[?25h");
+      } catch { }
       UI.altScreen = false;
     }
   }
@@ -499,8 +501,10 @@ export default class UI {
       clearInterval(UI.badgeInterval);
       UI.badgeInterval = null;
     }
-    process.stdin.removeListener("data", UI.badgeKeyHandler);
-    try { process.stdin.setRawMode(false); } catch { }
+    try {
+      process.stdin.removeListener("data", UI.badgeKeyHandler);
+      process.stdin.setRawMode(false);
+    } catch { }
     UI.badgeFlag = null;
   }
 

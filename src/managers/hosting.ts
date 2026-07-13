@@ -156,8 +156,13 @@ export default class Hosting {
       Hosting.closed = true;
       Hosting.cleanup();
       if (!Hosting.socket) { resolve(); return; }
-      Hosting.socket.removeAllListeners("error");
-      try { Hosting.socket.close(() => resolve()); } catch { resolve(); }
+      try {
+        Hosting.socket.removeAllListeners("error");
+        Hosting.socket.close(() => resolve());
+      } catch {
+        resolve();
+      }
+
       Hosting.ip = null;
       Hosting.hostFound = false;
     });

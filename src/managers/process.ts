@@ -4,6 +4,7 @@ import { createInterface } from "readline";
 import UI from "./ui";
 import Git from "./git";
 import Hosting from "./hosting";
+import Java from "./java";
 
 export default class Process {
   private static closing = false;
@@ -106,6 +107,7 @@ export default class Process {
     UI.restoreMainScreen();
     UI.stopBadge();
 
+    await Java.kill();
     Git.worldDisableRepeatedPush();
     await Hosting.close();
 
