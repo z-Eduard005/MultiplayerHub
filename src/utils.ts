@@ -1,7 +1,8 @@
 import type { ChildProcessWithoutNullStreams } from "child_process";
 import { spawn } from "child_process";
 import { setTimeout as setTimeoutPromise } from "timers/promises";
-import { IS_WIN32, LINUX_SHELL } from "./constants";
+import { join } from "path";
+import { IS_WIN32, LINUX_SHELL, INSTANCES_DIR } from "./constants";
 import type { TryCatch, Run, LogType } from "./types";
 import { access, constants } from "fs/promises";
 
@@ -10,10 +11,15 @@ export const run: Run = async (commands, options) => {
     commandsArray: string[] = Array.isArray(commands) ? commands : [commands],
     spawnFn = (c: string) => {
       const isTTY = options?.inherit && process.stdin.isTTY;
+      const childEnv = { ...process.env } as Record<string, string>;
+      if (options?.gitSshKeyName) {
+        const key = join(INSTANCES_DIR, options.gitSshKeyName, "deploy_key").replace(/\\/g, "/");
+        childEnv['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -i ${key}`;
+      }
       const child = spawn(c, {
         shell: IS_WIN32 ? true : LINUX_SHELL,
         cwd: options?.cwd,
-        env: process.env,
+        env: childEnv,
         ...(isTTY ? { stdio: ['inherit', 'pipe', 'pipe'] as const } : {})
       }) as ChildProcessWithoutNullStreams;
       return child;

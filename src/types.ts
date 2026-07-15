@@ -3,7 +3,7 @@ export type Run = <
   Inherit extends boolean = false
 >(
   commands: Commands,
-  options?: { cwd?: string; inherit?: Inherit }
+  options?: { cwd?: string; inherit?: Inherit; gitSshKeyName?: string }
 ) => Promise<
   Inherit extends true ? null : Commands extends string ? string : string[]
 >;

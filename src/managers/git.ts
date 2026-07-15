@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rename, rm, writeFile } from "fs/promises";
+import { cp, mkdir, readFile, rm, writeFile } from "fs/promises";
 import { exists, randomNum, run, log, tryCatch, throwErr } from "../utils";
 import { USER_NAME, INSTANCES_DIR } from "../constants";
 import { join } from "path";
@@ -7,8 +7,6 @@ import App from "./app";
 
 export default class Git {
   private static readonly PUSH_INTERVAL_MS = 30 * 60 * 1000;
-
-  static worldInitialized = false;
   static nodeWorldPushInterval: NodeJS.Timeout;
 
   static async initServer(serverName: string) {
@@ -37,7 +35,7 @@ export default class Git {
         [
           `git remote add origin ${repoUrl}`,
           "git add -A",
-          'git commit --allow-empty -m "init"',
+          'git commit --amend --allow-empty -m "init"',
           "git push --force origin server"
         ],
         { cwd: serverDir, inherit: true }
@@ -72,9 +70,9 @@ export default class Git {
         }
 
         if (invalidPath) {
-          log("Invalid world folder", "warning");
+          log("Invalid world folder. Skipping...", "warning");
         } else {
-          await rename(worldDir, worldDir + ".bak");
+          await rm(worldDir, { recursive: true, force: true });
           await cp(worldPath, worldDir, { recursive: true, force: true });
         }
       }
@@ -86,7 +84,7 @@ export default class Git {
           "git init -b world",
           `git remote add origin ${repoUrl}`,
           "git add -A",
-          'git commit --allow-empty -m "init"',
+          'git commit --amend --allow-empty -m "init"',
           "git push --force origin world"
         ],
         { cwd: worldDir, inherit: true }
@@ -95,10 +93,10 @@ export default class Git {
     }, "Error during world directory initialization");
   }
 
-  static worldEnableRepeatedPush(serverName: string, repoUrl: string) {
+  static worldEnableRepeatedPush(serverName: string) {
     Git.nodeWorldPushInterval = setInterval(async () => {
-      await Git.pushWorld(serverName, repoUrl);
-      log("The world has been sent to the cloud", "warning");
+      await Git.push("world", serverName);
+      log("The world has been sent to the cloud", "info");
     }, Git.PUSH_INTERVAL_MS);
   }
 
@@ -106,71 +104,66 @@ export default class Git {
     clearInterval(Git.nodeWorldPushInterval)
   }
 
-  static async pushWorld(serverName: string, repoUrl: string) {
+  static async push(branch: "server" | "world", serverName: string) {
+    const serverDir = join(INSTANCES_DIR, serverName, "server");
+    const worldDir = join(serverDir, "world");
+    const deployKeyPath = join(INSTANCES_DIR, serverName, "deploy_key");
+    const posixPath = deployKeyPath.replace(/\\/g, "/");
+
     await tryCatch(async () => {
-      const worldDir = join(INSTANCES_DIR, serverName, "server", "world");
+      process.env['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -i ${posixPath}`;
       await run(
         [
           "git add -A",
-          `git commit -m "${USER_NAME + randomNum(6)}-update"`,
-          `git push -f ${repoUrl} --all`,
+          `git commit --allow-empty --amend -m "${USER_NAME + randomNum(6)}-update"`,
+          `git push --force origin ${branch}`,
         ],
-        { inherit: true, cwd: worldDir }
+        { inherit: true, cwd: branch === "server" ? serverDir : worldDir }
       );
-    }, "Error sending world to the cloud (check your internet)");
-  };
+    }, `Failed to push ${branch} updates to the cloud (check your internet)`);
+  }
 
-  static async syncWorld(serverName: string, repoUrl: string) {
+  static async syncWorld(serverName: string) {
     const worldDir = join(INSTANCES_DIR, serverName, "server", "world");
+    const deployKeyPath = join(INSTANCES_DIR, serverName, "deploy_key");
     log("World synchronization...", "info");
+
     await tryCatch(async () => {
-      await run(`git -c credential.helper= fetch --depth 1 ${repoUrl}`, {
+      process.env['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -i ${deployKeyPath.replace(/\\/g, "/")}`;
+
+      await run("git -c credential.helper= fetch --depth 1 origin world", {
         inherit: true,
         cwd: worldDir,
       });
-      const unstagedChanges = await run("git status --porcelain", { cwd: repoUrl });
+      const unstagedChanges = await run("git status --porcelain", { cwd: worldDir });
       const [localHead, remoteHead] = await run(
         ["git rev-parse HEAD", "git rev-parse FETCH_HEAD"],
         { cwd: worldDir }
       );
 
       if (unstagedChanges.length !== 0 && localHead === remoteHead) {
-        await Git.pushWorld(serverName, repoUrl);
-      } else {
+        await Git.push("world", serverName);
+      } else if (localHead !== remoteHead) {
         await run("git reset --hard FETCH_HEAD", { inherit: true, cwd: worldDir });
       }
     }, "Failed world synchronization");
   };
 
-  static async fetchServer(serverName: string, deployKeyPath: string) {
+  static async fetchServer(serverName: string) {
     const serverDir = join(INSTANCES_DIR, serverName, "server");
+    const deployKeyPath = join(INSTANCES_DIR, serverName, "deploy_key");
+    const posixPath = deployKeyPath.replace(/\\/g, "/");
     log("Server synchronization...", "info");
+
     await tryCatch(async () => {
-      const posixPath = deployKeyPath.replace(/\\/g, "/");
       process.env['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -i ${posixPath}`;
       await run(
         [
-          "git fetch --depth 1 origin server",
+          "git -c credential.helper= fetch --depth 1 origin server",
           "git reset --hard origin/server",
         ],
         { inherit: true, cwd: serverDir }
       );
     }, "Failed server synchronization");
-  }
-
-  static async pushServer(serverName: string, deployKeyPath: string) {
-    const serverDir = join(INSTANCES_DIR, serverName, "server");
-    const posixPath = deployKeyPath.replace(/\\/g, "/");
-    await tryCatch(async () => {
-      process.env['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -i ${posixPath}`;
-      await run(
-        [
-          "git add -A",
-          'git commit --amend -m "snapshot"',
-          "git push --force origin server",
-        ],
-        { inherit: true, cwd: serverDir }
-      );
-    }, "Failed to push server updates");
   }
 }

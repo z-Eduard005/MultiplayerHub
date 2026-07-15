@@ -20,15 +20,15 @@ tryCatch(
 
     let instanceError: string | null = null;
 
-    const closeInstance = async (serverName: string, instance: Instance, ztNetworkId: string) => {
+    const closeInstance = async (serverName: string, ztNetworkId: string) => {
       UI.stopBadge();
 
       await Java.kill();
 
       Git.worldDisableRepeatedPush();
-      if (Hosting.ip === Zerotier.ip && Git.worldInitialized) {
+      if (Hosting.ip === Zerotier.ip) {
         await tryCatch(
-          () => Git.syncWorld(serverName, instance.repoUrl ?? ""),
+          () => Git.syncWorld(serverName),
           err => log(err, "error")
         );
       }
@@ -62,6 +62,7 @@ tryCatch(
         const adminName = await Tlauncher.getAccountName();
         Hosting.nickName = adminName;
         Hosting.ztNetworkId = ztNetworkId;
+
         await Hosting.startMonitoring(instance, closeFlag, (owner, ztNetworkId) => {
           const patch: Partial<Instance> = {};
           if (instance.owner !== "me") {
@@ -73,11 +74,12 @@ tryCatch(
 
         if (closeFlag.value) {
           if (Hosting.closeReason) instanceError = Hosting.closeReason;
-          await closeInstance(serverName, instance, ztNetworkId);
+          await closeInstance(serverName, ztNetworkId);
           return;
         }
-        // await Git.serverFetch();
-        // await Git.worldSync();
+
+        if (instance.owner !== "me") await Git.fetchServer(serverName);
+        await Git.syncWorld(serverName);
 
         await Java.applyServerIp(Zerotier.ip!, serverName);
         await Java.start(serverName, ram, instance.version);
@@ -110,16 +112,16 @@ tryCatch(
               log(`You have started the server on port: ${Zerotier.ip}:${Java.PORT}`, "success");
               UI.startBadge("Close and Save Progress! (Ctrl+O)", closeFlag);
 
-              Git.worldEnableRepeatedPush(serverName, instance.repoUrl ?? "");
+              Git.worldEnableRepeatedPush(serverName);
             }
           });
         });
 
         clearInterval(closePoll);
-        if (closeFlag.value) await closeInstance(serverName, instance, ztNetworkId);
+        if (closeFlag.value) await closeInstance(serverName, ztNetworkId);
       }, async (err) => {
         instanceError = err;
-        await closeInstance(serverName, instance, ztNetworkId);
+        await closeInstance(serverName, ztNetworkId);
       });
     };
 

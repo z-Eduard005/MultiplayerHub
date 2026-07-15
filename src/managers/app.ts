@@ -264,8 +264,8 @@ export default class App {
       await rm(join(VERSIONS_DIR, name), { recursive: true, force: true });
 
       const instanceHomeDir = join(GAME_DIR, "home", name);
-      await rm(instanceHomeDir + "_backup", { recursive: true, force: true });
-      if (await exists(instanceHomeDir)) await rename(instanceHomeDir, instanceHomeDir + "_backup");
+      await rm(instanceHomeDir + ".bak", { recursive: true, force: true });
+      if (await exists(instanceHomeDir)) await rename(instanceHomeDir, instanceHomeDir + ".bak");
 
       const inst = instances.find(i => i.name === name);
       if (inst?.owner === "me") await GH.repoDelete(name);
