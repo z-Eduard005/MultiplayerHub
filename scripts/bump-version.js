@@ -9,12 +9,17 @@ const match = content.match(
 );
 const current = match ? match[1] : "unknown";
 
+let completed = false;
+
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+rl.on("SIGINT", () => process.exit(1));
+rl.on("close", () => { if (!completed) process.exit(1); });
+
 rl.question(`Current version: ${current}\nNew version: `, (input) => {
   const trimmed = input.trim();
   if (!/^\d+\.\d+\.\d+$/.test(trimmed)) {
     console.log("Invalid format — use X.Y.Z");
-    rl.close();
     process.exit(1);
   }
 
@@ -23,7 +28,6 @@ rl.question(`Current version: ${current}\nNew version: `, (input) => {
   const isNewer = n0 > c0 || (n0 === c0 && n1 > c1) || (n0 === c0 && n1 === c1 && n2 > c2);
   if (!isNewer) {
     console.log("New version must be greater than current version");
-    rl.close();
     process.exit(1);
   }
 
@@ -38,5 +42,6 @@ rl.question(`Current version: ${current}\nNew version: `, (input) => {
   fs.writeFileSync(PKG_FILE, JSON.stringify(pkg, null, 2) + "\n");
 
   console.log(`Bumped to ${trimmed}`);
+  completed = true;
   rl.close();
 });

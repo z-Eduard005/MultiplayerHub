@@ -52,6 +52,7 @@ export const run: Run = async (commands, options) => {
           }
         });
 
+        child.on("error", reject);
         child.on("close", (code) => {
           return code === 0
             ? resolve(stdout.trim())

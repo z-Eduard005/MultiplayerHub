@@ -1,6 +1,8 @@
 const { execSync } = require("child_process");
 const fs = require("fs");
 
+execSync("git fetch --prune --prune-tags origin", { stdio: "inherit" });
+
 const file = "src/managers/app.ts";
 const content = fs.readFileSync(file, "utf8");
 const match = content.match(
@@ -27,5 +29,6 @@ if (releases.length > 5) {
   for (const r of old) {
     execSync(`gh release delete ${r.tagName} --yes`, { stdio: "inherit" });
     execSync(`git push --delete origin ${r.tagName}`, { stdio: "inherit" });
+    execSync(`git tag -d ${r.tagName}`, { stdio: "inherit" });
   }
 }

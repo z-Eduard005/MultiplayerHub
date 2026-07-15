@@ -31,7 +31,7 @@ export default class Git {
         [
           `git remote add origin ${repoUrl}`,
           "git add -A",
-          'git commit --amend --allow-empty -m "init"',
+          'git commit --allow-empty -m "init"',
           "git push --force origin server"
         ],
         { cwd: serverDir, inherit: true, gitSshKeyName: serverName }
@@ -74,7 +74,7 @@ export default class Git {
           "git init -b world",
           `git remote add origin ${repoUrl}`,
           "git add -A",
-          'git commit --amend --allow-empty -m "init"',
+          'git commit --allow-empty -m "init"',
           "git push --force origin world"
         ],
         { cwd: worldDir, inherit: true, gitSshKeyName: serverName }
@@ -158,13 +158,12 @@ export default class Git {
     const repoUrl = inst.repoUrl;
     if (!repoUrl) throwErr(`No repo URL found for ${serverName} server`);
 
-    const existsIgnoreFile = await exists(join(serverDir, ".gitignore"));
-    if (!existsIgnoreFile) await writeFile(join(serverDir, ".gitignore"), "/world/\n");
-
     if (inst.owner !== "me") {
       log("Server synchronization...", "info");
       await tryCatch(async () => {
         await Git.ensureRepo(serverDir, "server", repoUrl!);
+        const existsIgnoreFile = await exists(join(serverDir, ".gitignore"));
+        if (!existsIgnoreFile) await writeFile(join(serverDir, ".gitignore"), "/world/\n");
 
         await run(
           ["git -c credential.helper= fetch --depth 1 origin server", "git reset --hard origin/server"],
