@@ -119,6 +119,7 @@ export default class Git {
         "git -c credential.helper= fetch --depth 1 origin world",
         { inherit: true, cwd: worldDir, gitSshKeyName: serverName }
       );
+
       const unstagedChanges = await run("git status --porcelain", { cwd: worldDir });
       const [localHead, remoteHead] = await run(
         ["git rev-parse HEAD", "git rev-parse FETCH_HEAD"],
@@ -138,7 +139,11 @@ export default class Git {
       await rm(dir, { recursive: true, force: true });
       await mkdir(dir, { recursive: true });
       await run(
-        [`git init -b ${branch}`, `git remote add origin ${url}`],
+        [
+          `git init -b ${branch}`,
+          `git remote add origin ${url}`,
+          `git commit --allow-empty -m "init"`
+        ],
         { cwd: dir }
       );
     }
@@ -152,6 +157,9 @@ export default class Git {
     const worldDir = join(serverDir, "world");
     const repoUrl = inst.repoUrl;
     if (!repoUrl) throwErr(`No repo URL found for ${serverName} server`);
+
+    const existsIgnoreFile = await exists(join(serverDir, ".gitignore"));
+    if (!existsIgnoreFile) await writeFile(join(serverDir, ".gitignore"), "/world/\n");
 
     if (inst.owner !== "me") {
       log("Server synchronization...", "info");

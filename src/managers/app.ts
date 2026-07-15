@@ -33,7 +33,7 @@ export type Instance = {
   id: string;
   name: string;
   owner: string;
-  state: "init" | "installed" | "ready";
+  state: "init" | "invited" | "installed" | "ready";
   version: string;
   ram?: number;
   zerotierID?: string;
@@ -327,14 +327,14 @@ export default class App {
         id,
         name,
         owner: nickName,
-        state: "ready",
+        state: "invited",
         version: mcVersion,
         zerotierID: networkId,
         repoUrl: repoUrl,
       };
       instances.push(entry);
       await App.putConfig(CONFIG_FILE, { instances });
-      return serverName;
+      return name;
     }, "Failed to decode invite string");
   }
 

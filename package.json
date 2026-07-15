@@ -12,7 +12,7 @@
     "test": "npm run build && cp build/MultiplayerHub ~/Downloads/MultiplayerHub && ~/Downloads/MultiplayerHub"
   },
   "devDependencies": {
-    "@types/node": "^22.13.10",
+    "@types/node": "^22.20.1",
     "eslint": "^9.34.0",
     "globals": "^16.3.0",
     "jiti": "^2.5.1",

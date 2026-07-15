@@ -17,6 +17,7 @@ type InputOptions = LayoutOptions & {
 
 type ListOptions = LayoutOptions & {
   refresh?: () => Promise<(string | ListItem)[]>;
+  resolveOn?: () => Promise<string | null | undefined>;
   defaultValue?: number;
   lockable?: boolean;
   footerText?: string | { label: string; center?: boolean };
@@ -398,6 +399,13 @@ export default class UI {
             items.length = 0;
             items.push(...newNormalized);
             rerender();
+          }
+          if (layoutOptions?.resolveOn) {
+            const resolveValue = await layoutOptions.resolveOn();
+            if (resolveValue) {
+              cleanup();
+              resolve({ value: resolveValue, index: -1, cancelled: false });
+            }
           }
         };
         refreshInterval();

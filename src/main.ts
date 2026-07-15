@@ -17,7 +17,6 @@ tryCatch(
     await App.setup();
 
     let mainOptionIndex = 0;
-
     let instanceError: string | null = null;
 
     const closeInstance = async (serverName: string, ztNetworkId: string) => {
@@ -104,7 +103,7 @@ tryCatch(
             process.stdout.write(data);
 
             if (data.includes(`${adminName} joined the game`)) {
-              Java.runMCCommand(`op ${adminName}`);
+              Java.runMCCommand(`op ${instance.owner}`);
             }
 
             if (SERVER_READY_RGX.test(data)) {
@@ -213,7 +212,49 @@ tryCatch(
       }
     };
 
-    const finishServerSetup = async (serverName: string, state: "init" | "installed", version: string) => {
+    const initInstanceVersion = async (serverName: string, neededVersion: string): Promise<boolean> => {
+      if ((await Tlauncher.installedVersions()).includes(neededVersion)) {
+        await Tlauncher.setupServerVersion(neededVersion, serverName);
+        return true;
+      }
+
+      let lastTlauncherLaunch = 0;
+
+      while (true) {
+        const { value, cancelled } = await UI.list(["> Open TLauncher"], {
+          title: "Waiting for version...",
+          desc: `You need to install version "${neededVersion}" from TLauncher manually in order to play on this server`,
+          resolveOn: async () => {
+            const installed = (await Tlauncher.installedVersions()).includes(neededVersion);
+            return installed ? neededVersion : null;
+          },
+        });
+
+        if (value === neededVersion) {
+          await Tlauncher.setupServerVersion(neededVersion, serverName);
+          return true;
+        }
+        if (cancelled) return false;
+
+        if (Date.now() - lastTlauncherLaunch >= 5000) {
+          lastTlauncherLaunch = Date.now();
+          await Tlauncher.open();
+        }
+      }
+    };
+
+    const finishServerSetup = async (serverName: string, state: "init" | "invited" | "installed", version: string) => {
+      if (state === "invited") {
+        const installed = await initInstanceVersion(serverName, version);
+        if (!installed) {
+          await instanceEntryUi(serverName);
+          return;
+        }
+        await App.updateInstance(serverName, { state: "ready" });
+        await instanceEntryUi(serverName);
+        return;
+      }
+
       if (state === "init") {
         await Java.installServer(serverName, version);
         await App.updateInstance(serverName, { state: "installed" });
@@ -260,7 +301,7 @@ tryCatch(
           continue;
         }
 
-        if (selected.owner !== "me") {
+        if (selected.state !== "invited" && selected.owner !== "me") {
           log(`Server broken. Contact its owner: ${selected.owner}`, "error");
           continue;
         }
@@ -431,7 +472,13 @@ tryCatch(
         });
 
         if (cancelled) continue;
-        await App.decodeInviteString(invite);
+        const invitedName = await App.decodeInviteString(invite);
+        const invitedInst = await App.getInstance(invitedName);
+
+        const installed = await initInstanceVersion(invitedName, invitedInst!.version);
+        if (installed) {
+          await finishServerSetup(invitedName, "invited", invitedInst!.version);
+        }
         continue;
       };
     }
