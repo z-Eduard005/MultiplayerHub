@@ -6,7 +6,7 @@ import GH from "./gh";
 import App from "./app";
 
 export default class Git {
-  private static readonly PUSH_INTERVAL_MS = 30 * 60 * 1000;
+  private static readonly PUSH_INTERVAL_MS = 3 * 60 * 1000;
   static nodeWorldPushInterval: NodeJS.Timeout;
 
   static async initServer(serverName: string) {
@@ -19,18 +19,14 @@ export default class Git {
       await writeFile(join(serverDir, ".gitignore"), "/world/\n");
       await run("git init -b server", { cwd: serverDir });
 
-      // Generate SSH deploy key pair
       await rm(deployKeyPath, { force: true });
       await rm(deployKeyPath + ".pub", { force: true });
       await run(`ssh-keygen -t ed25519 -N "" -f "${posixPath}"`);
 
-      // Create repo with gh and save to config
       const repoUrl = await GH.repoCreate(serverName);
       const pubKey = await readFile(deployKeyPath + ".pub", "utf8");
       await GH.addDeployKey(serverName, pubKey.trim());
 
-      // Set up remote + commit init
-      process.env['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -i ${posixPath}`;
       await run(
         [
           `git remote add origin ${repoUrl}`,
@@ -38,28 +34,24 @@ export default class Git {
           'git commit --amend --allow-empty -m "init"',
           "git push --force origin server"
         ],
-        { cwd: serverDir, inherit: true }
+        { cwd: serverDir, inherit: true, gitSshKeyName: serverName }
       );
 
-      // Save repoUrl to instance config
       await App.updateInstance(serverName, { repoUrl });
     }, "Error during server directory initialization");
   }
 
   static async initWorld(serverName: string, worldPath?: string) {
     const worldDir = join(INSTANCES_DIR, serverName, "server", "world");
-    const deployKeyPath = join(INSTANCES_DIR, serverName, "deploy_key");
-    const posixPath = deployKeyPath.replace(/\\/g, "/");
 
     await tryCatch(async () => {
       const inst = await App.getInstance(serverName);
       const repoUrl = inst?.repoUrl;
       if (!repoUrl) throwErr("No server url found. Please create a server first");
 
-      await rm(join(worldDir, ".git"), { recursive: true, force: true });
-
-      // Create world dir and copy files if path provided
+      await rm(worldDir, { recursive: true, force: true });
       await mkdir(worldDir, { recursive: true });
+
       if (worldPath) {
         let invalidPath = true;
 
@@ -77,8 +69,6 @@ export default class Git {
         }
       }
 
-      // Git init for world dir on branch "world" + push first commit to world branch
-      process.env['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -i ${posixPath}`;
       await run(
         [
           "git init -b world",
@@ -87,7 +77,7 @@ export default class Git {
           'git commit --amend --allow-empty -m "init"',
           "git push --force origin world"
         ],
-        { cwd: worldDir, inherit: true }
+        { cwd: worldDir, inherit: true, gitSshKeyName: serverName }
       );
 
     }, "Error during world directory initialization");
@@ -107,34 +97,28 @@ export default class Git {
   static async push(branch: "server" | "world", serverName: string) {
     const serverDir = join(INSTANCES_DIR, serverName, "server");
     const worldDir = join(serverDir, "world");
-    const deployKeyPath = join(INSTANCES_DIR, serverName, "deploy_key");
-    const posixPath = deployKeyPath.replace(/\\/g, "/");
 
     await tryCatch(async () => {
-      process.env['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -i ${posixPath}`;
       await run(
         [
           "git add -A",
           `git commit --allow-empty --amend -m "${USER_NAME + randomNum(6)}-update"`,
           `git push --force origin ${branch}`,
         ],
-        { inherit: true, cwd: branch === "server" ? serverDir : worldDir }
+        { inherit: true, cwd: branch === "server" ? serverDir : worldDir, gitSshKeyName: serverName }
       );
     }, `Failed to push ${branch} updates to the cloud (check your internet)`);
   }
 
   static async syncWorld(serverName: string) {
     const worldDir = join(INSTANCES_DIR, serverName, "server", "world");
-    const deployKeyPath = join(INSTANCES_DIR, serverName, "deploy_key");
     log("World synchronization...", "info");
 
     await tryCatch(async () => {
-      process.env['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -i ${deployKeyPath.replace(/\\/g, "/")}`;
-
-      await run("git -c credential.helper= fetch --depth 1 origin world", {
-        inherit: true,
-        cwd: worldDir,
-      });
+      await run(
+        "git -c credential.helper= fetch --depth 1 origin world",
+        { inherit: true, cwd: worldDir, gitSshKeyName: serverName }
+      );
       const unstagedChanges = await run("git status --porcelain", { cwd: worldDir });
       const [localHead, remoteHead] = await run(
         ["git rev-parse HEAD", "git rev-parse FETCH_HEAD"],
@@ -149,21 +133,42 @@ export default class Git {
     }, "Failed world synchronization");
   };
 
-  static async fetchServer(serverName: string) {
-    const serverDir = join(INSTANCES_DIR, serverName, "server");
-    const deployKeyPath = join(INSTANCES_DIR, serverName, "deploy_key");
-    const posixPath = deployKeyPath.replace(/\\/g, "/");
-    log("Server synchronization...", "info");
-
-    await tryCatch(async () => {
-      process.env['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -i ${posixPath}`;
+  private static async ensureRepo(dir: string, branch: string, url: string) {
+    if (!await exists(join(dir, ".git"))) {
+      await rm(dir, { recursive: true, force: true });
+      await mkdir(dir, { recursive: true });
       await run(
-        [
-          "git -c credential.helper= fetch --depth 1 origin server",
-          "git reset --hard origin/server",
-        ],
-        { inherit: true, cwd: serverDir }
+        [`git init -b ${branch}`, `git remote add origin ${url}`],
+        { cwd: dir }
       );
-    }, "Failed server synchronization");
+    }
+  }
+
+  static async fetchInstanceData(serverName: string) {
+    const inst = await App.getInstance(serverName);
+    if (!inst) return;
+
+    const serverDir = join(INSTANCES_DIR, serverName, "server");
+    const worldDir = join(serverDir, "world");
+    const repoUrl = inst.repoUrl;
+    if (!repoUrl) throwErr(`No repo URL found for ${serverName} server`);
+
+    if (inst.owner !== "me") {
+      log("Server synchronization...", "info");
+      await tryCatch(async () => {
+        await Git.ensureRepo(serverDir, "server", repoUrl!);
+
+        await run(
+          ["git -c credential.helper= fetch --depth 1 origin server", "git reset --hard origin/server"],
+          { inherit: true, cwd: serverDir, gitSshKeyName: serverName }
+        );
+      }, "Failed server synchronization");
+    }
+
+    log("World synchronization...", "info");
+    await tryCatch(async () => {
+      await Git.ensureRepo(worldDir, "world", repoUrl!);
+      await Git.syncWorld(serverName);
+    }, "Failed world synchronization");
   }
 }

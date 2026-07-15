@@ -78,8 +78,7 @@ tryCatch(
           return;
         }
 
-        if (instance.owner !== "me") await Git.fetchServer(serverName);
-        await Git.syncWorld(serverName);
+        await Git.fetchInstanceData(serverName);
 
         await Java.applyServerIp(Zerotier.ip!, serverName);
         await Java.start(serverName, ram, instance.version);
