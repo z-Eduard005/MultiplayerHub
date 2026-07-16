@@ -1,6 +1,6 @@
 import { join } from "path";
-import { tryCatch } from "../utils";
-import { rm, writeFile } from "fs/promises";
+import { exists, tryCatch } from "../utils";
+import { readFile, rm, writeFile } from "fs/promises";
 import { GAME_DIR } from "../constants";
 
 export default class Minecraft {
@@ -52,7 +52,10 @@ export default class Minecraft {
     tryCatch(
       async () => {
         await rm(serversBakFile, { force: true });
-        await writeFile(serversFile, Minecraft.serverToNBT(ip, name), "utf8");
+        const content = Minecraft.serverToNBT(ip, name);
+        let existing = "";
+        if (await exists(serversFile)) existing = await readFile(serversFile, "utf8");
+        if (existing !== content) await writeFile(serversFile, content, "utf8");
       },
       `The server was not added to the Minecraft menu automatically (try to run "${name}" client at least once)`,
       true

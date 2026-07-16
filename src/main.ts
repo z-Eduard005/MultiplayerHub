@@ -52,8 +52,8 @@ tryCatch(
         if (ram < Java.MIN_RAM_MB) throwErr("You don't have enough memory to play on the server :(");
 
         await Zerotier.start();
-        await Zerotier.join(ztNetworkId);
-        Zerotier.ip = Zerotier.getIP();
+        await Zerotier.join(ztNetworkId, instance.owner === "me");
+        Zerotier.ip = await Zerotier.getIP();
 
         await Tlauncher.chooseVersion(serverName);
         Tlauncher.open();

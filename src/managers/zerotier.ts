@@ -9,7 +9,7 @@ import UI from "./ui";
 export default class Zerotier {
   static readonly ADMIN_URL = "https://central.zerotier.com";
   private static readonly NEW_ORG_URL = `${Zerotier.ADMIN_URL}/org/new`;
-  private static readonly FILE = IS_WIN32
+  static readonly FILE = IS_WIN32
     ? join("C:", "Program Files (x86)", "ZeroTier", "One", "zerotier-cli.bat")
     : join("/usr", "bin", "zerotier-cli");
 
@@ -21,7 +21,7 @@ export default class Zerotier {
   private static readonly SUDOERS_CONTENT = `${USER_NAME} ALL=(ALL) NOPASSWD: ${Zerotier.FILE} *`;
   private static readonly CMD_TIMEOUT = 4000;
 
-  static readonly START_IP = "10.69.55";
+  static broadcastIP: string | null = null;
   static ip: string | null = null;
 
   private static async setupSudoers() {
@@ -51,7 +51,7 @@ export default class Zerotier {
     }, "Failed to start zerotier")
   }
 
-  static async join(id: string) {
+  static async join(id: string, amIOwner: boolean) {
     log("Joining zerotier network...", "info");
     const getNetworks = async () => {
       return await tryCatch(async () => {
@@ -74,46 +74,57 @@ export default class Zerotier {
       networks.includes("ACCESS_DENIED") ||
       networks.includes("REQUESTING_CONFIGURATION") ||
       !networks.includes("PRIVATE")
-    )
-      throwErr("Zerotier authorization failed (contact with admin of the server or try again!)");
+    ) {
+      throwErr(`Zerotier authorization failed\n${amIOwner ? `Authorise yourself: https://my.zerotier.com/network/${id}` : "Contact with owner of the server!"}`);
+    }
   }
 
   static async leave(id: string) {
-    await tryCatch(async () => await run(sudo(`"${Zerotier.FILE}" leave ${id}`), { inherit: true }))
+    await tryCatch(async () => await run(sudo(`"${Zerotier.FILE}" leave "${id}"`), { inherit: true }))
   }
 
   static async leaveAll() {
     const out = await tryCatch(
-      async () => run(sudo(`"${Zerotier.FILE}" listnetworks`)),
+      async () => run(sudo(`"${Zerotier.FILE}" -j listnetworks`)),
       "Failed to list zerotier networks"
     );
     if (!out) return;
 
-    for (const line of out.split("\n")) {
-      const parts = line.trim().split(/\s+/);
-      if (parts.length < 8) continue;
-      const nwid = parts[2];
-      const ips = parts.slice(7).flatMap(p => p.split(","));
-      if (!ips.some(ip => ip.startsWith(Zerotier.START_IP))) continue;
-      log(`Leaving stale network ${nwid}...`, "info");
-      await Zerotier.leave(nwid!);
+    type ZtNet = { nwid: string };
+    const networks: ZtNet[] = JSON.parse(out);
+    for (const net of networks) {
+      await Zerotier.leave(net.nwid);
     }
   }
 
-  static getIP() {
-    const ip = Object.values(networkInterfaces()).flat().find(
-      (interf) => {
-        return interf?.family === "IPv4" &&
-          !interf.internal &&
-          interf.address.startsWith(Zerotier.START_IP);
-      }
-    )?.address ?? "";
-    if (!ip) {
-      throwErr(
-        "Zerotier ipV4 address of this device not found (try to restart the pc)"
-      );
-    }
-    return ip;
+  private static ipToInt(ip: string): number {
+    const parts = ip.split(".");
+    const [a, b, c, d] = parts as [string, string, string, string];
+    return ((+a << 24) | (+b << 16) | (+c << 8) | +d) >>> 0;
+  }
+
+  private static intToIp(num: number): string {
+    return [
+      (num >>> 24) & 255,
+      (num >>> 16) & 255,
+      (num >>> 8) & 255,
+      num & 255
+    ].join(".");
+  }
+
+  static async getIP() {
+    const ztIf = Object.entries(networkInterfaces())
+      .filter(([name]) => IS_WIN32 ? name.includes("ZeroTier") : name.startsWith("zt"))
+      .flatMap(([, addrs]) => addrs ?? [])
+      .find(interf => interf?.family === "IPv4" && !interf.internal);
+
+    if (!ztIf) throwErr("ZeroTier IPv4 address not found.\nMaybe Zerotier Netword ID changed.\nPlease contact with server owner and change this server Network ID");
+
+    const maskNum = Zerotier.ipToInt(ztIf!.netmask);
+    const ipNum = Zerotier.ipToInt(ztIf!.address);
+    Zerotier.broadcastIP = Zerotier.intToIp((ipNum | (~maskNum >>> 0)) >>> 0);
+
+    return ztIf!.address;
   }
 
   static async install() {
