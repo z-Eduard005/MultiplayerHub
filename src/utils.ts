@@ -25,45 +25,43 @@ export const run: Run = async (commands, options) => {
       return child;
     };
 
-  for (const cmd of commandsArray) {
-    result.push(
-      await new Promise(async (resolve, reject) => {
-        let child: ChildProcessWithoutNullStreams | undefined;
-        if (cmd.startsWith("git ")) {
-          child = await retryRun(() => {
-            return spawnFn(cmd);
-          });
-        } else {
-          child = spawnFn(cmd);
+  const executeCmd = (cmd: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const child = spawnFn(cmd);
+      let stdout = "",
+        stderr = "";
+      child.stdout.on("data", (chunk) => {
+        stdout += chunk;
+        if (options?.inherit) {
+          process.stdout.write(chunk);
         }
+      });
+      child.stderr.on("data", (chunk) => {
+        stderr += chunk;
+        if (options?.inherit) {
+          process.stderr.write(chunk);
+        }
+      });
 
-        let stdout = "",
-          stderr = "";
-        child.stdout.on("data", (chunk) => {
-          stdout += chunk;
-          if (options?.inherit) {
-            process.stdout.write(chunk);
-          }
-        });
-        child.stderr.on("data", (chunk) => {
-          stderr += chunk;
-          if (options?.inherit) {
-            process.stderr.write(chunk);
-          }
-        });
+      child.on("error", reject);
+      child.on("close", (code) => {
+        return code === 0
+          ? resolve(stdout.trim())
+          : reject(
+            new Error(
+              stderr.trim() || `${cmd}\nfailed with exit code ${code}`
+            )
+          );
+      });
+    });
+  };
 
-        child.on("error", reject);
-        child.on("close", (code) => {
-          return code === 0
-            ? resolve(stdout.trim())
-            : reject(
-              new Error(
-                stderr.trim() || `${cmd}\nfailed with exit code ${code}`
-              )
-            );
-        });
-      })
-    );
+  for (const cmd of commandsArray) {
+    if (cmd.startsWith("git ")) {
+      result.push(await retryRun(() => executeCmd(cmd)));
+    } else {
+      result.push(await executeCmd(cmd));
+    }
   }
   return (
     options?.inherit ? null : result.length === 1 ? result[0] : result

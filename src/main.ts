@@ -102,7 +102,7 @@ tryCatch(
           Java.process?.stdout.on("data", (data) => {
             process.stdout.write(data);
 
-            if (data.includes(`${adminName} joined the game`)) {
+            if (data.includes(`${instance.owner} joined the game`)) {
               Java.runMCCommand(`op ${instance.owner}`);
             }
 
@@ -458,16 +458,19 @@ tryCatch(
       }
       if (value === "+ Add New Server") {
         const config = await App.getConfig(CONFIG_FILE);
-        const myInvites = ((config["instances"] as Instance[]) ?? [])
-          .filter(i => i.owner === "me" && i.inviteString)
-          .map(i => i.inviteString);
+        const instances = (config["instances"] as Instance[]) ?? [];
 
         const { value: invite, cancelled } = await UI.input({
           title: `Paste invite string (${IS_WIN32 ? "Ctrl+V" : "Ctrl+Shift+V"})`,
           desc: "Ask the server creator for an invite string",
           maxLen: 2048,
           validate: (v: string) => {
-            return myInvites.includes(v) ? "You can't add your own server" : null;
+            try {
+              const raw = Buffer.from(v, "base64").toString("utf8");
+              const data = JSON.parse(raw);
+              if (instances.some(i => i.id === data.id)) return "Server already added";
+            } catch {}
+            return null;
           },
         });
 

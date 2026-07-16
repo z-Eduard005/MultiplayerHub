@@ -7,6 +7,8 @@ import App from "./app";
 
 export default class Git {
   private static readonly PUSH_INTERVAL_MS = 3 * 60 * 1000;
+  private static readonly SERVER_GITIGNORE = "/world/\n";
+  private static readonly WORLD_GITIGNORE = "*.lock\n*.tmp\n*.dat_old\n";
   static nodeWorldPushInterval: NodeJS.Timeout;
 
   static async initServer(serverName: string) {
@@ -16,7 +18,7 @@ export default class Git {
 
     await tryCatch(async () => {
       await rm(join(serverDir, ".git"), { recursive: true, force: true });
-      await writeFile(join(serverDir, ".gitignore"), "/world/\n");
+      await writeFile(join(serverDir, ".gitignore"), Git.SERVER_GITIGNORE);
       await run("git init -b server", { cwd: serverDir });
 
       await rm(deployKeyPath, { force: true });
@@ -64,11 +66,11 @@ export default class Git {
         if (invalidPath) {
           log("Invalid world folder. Skipping...", "warning");
         } else {
-          await rm(worldDir, { recursive: true, force: true });
           await cp(worldPath, worldDir, { recursive: true, force: true });
         }
       }
 
+      await writeFile(join(worldDir, ".gitignore"), Git.WORLD_GITIGNORE);
       await run(
         [
           "git init -b world",
@@ -163,7 +165,7 @@ export default class Git {
       await tryCatch(async () => {
         await Git.ensureRepo(serverDir, "server", repoUrl!);
         const existsIgnoreFile = await exists(join(serverDir, ".gitignore"));
-        if (!existsIgnoreFile) await writeFile(join(serverDir, ".gitignore"), "/world/\n");
+        if (!existsIgnoreFile) await writeFile(join(serverDir, ".gitignore"), Git.SERVER_GITIGNORE);
 
         await run(
           ["git -c credential.helper= fetch --depth 1 origin server", "git reset --hard origin/server"],
@@ -175,6 +177,9 @@ export default class Git {
     log("World synchronization...", "info");
     await tryCatch(async () => {
       await Git.ensureRepo(worldDir, "world", repoUrl!);
+      const existsIgnoreFile = await exists(join(worldDir, ".gitignore"));
+      if (!existsIgnoreFile) await writeFile(join(worldDir, ".gitignore"), Git.WORLD_GITIGNORE);
+
       await Git.syncWorld(serverName);
     }, "Failed world synchronization");
   }
