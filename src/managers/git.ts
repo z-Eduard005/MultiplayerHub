@@ -136,7 +136,7 @@ export default class Git {
     }, "Failed world synchronization");
   };
 
-  private static async ensureRepo(dir: string, branch: string, url: string) {
+  private static async ensureRepo(dir: string, branch: string, url: string, serverName: string) {
     if (!await exists(join(dir, ".git"))) {
       await rm(dir, { recursive: true, force: true });
       await mkdir(dir, { recursive: true });
@@ -146,7 +146,7 @@ export default class Git {
           `git remote add origin ${url}`,
           `git commit --allow-empty -m "init"`
         ],
-        { cwd: dir }
+        { cwd: dir, gitSshKeyName: serverName }
       );
     }
   }
@@ -163,7 +163,7 @@ export default class Git {
     if (inst.owner !== "me") {
       log("Server synchronization...", "info");
       await tryCatch(async () => {
-        await Git.ensureRepo(serverDir, "server", repoUrl!);
+        await Git.ensureRepo(serverDir, "server", repoUrl!, serverName);
         const existsIgnoreFile = await exists(join(serverDir, ".gitignore"));
         if (!existsIgnoreFile) await writeFile(join(serverDir, ".gitignore"), Git.SERVER_GITIGNORE);
 
@@ -176,7 +176,7 @@ export default class Git {
 
     log("World synchronization...", "info");
     await tryCatch(async () => {
-      await Git.ensureRepo(worldDir, "world", repoUrl!);
+      await Git.ensureRepo(worldDir, "world", repoUrl!, serverName);
       const existsIgnoreFile = await exists(join(worldDir, ".gitignore"));
       if (!existsIgnoreFile) await writeFile(join(worldDir, ".gitignore"), Git.WORLD_GITIGNORE);
 

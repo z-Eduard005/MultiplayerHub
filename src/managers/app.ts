@@ -1,12 +1,13 @@
 import { randomUUID } from "crypto";
 import { join, basename, normalize } from "path";
-import { copyFile, readFile, writeFile, mkdir, rename, rm, readdir } from "fs/promises";
+import { copyFile, readFile, writeFile, mkdir, rename, rm, readdir, chmod } from "fs/promises";
 import {
   IS_WIN32,
   DESKTOP_DIR,
   LINUX_SHELL,
   USER_DIR,
   APP_NAME,
+  APP_VERSION,
   APP_DIR,
   INSTANCES_DIR,
   CONFIG_FILE,
@@ -42,7 +43,6 @@ export type Instance = {
 }
 
 export default class App {
-  private static readonly VERSION = "1.0.2";
   private static readonly RELEASE_URL = "https://api.github.com/repos/z-Eduard005/MultiplayerHub/releases/latest"
   private static readonly RAW_GITHUB_URL = "https://raw.githubusercontent.com/z-Eduard005/MultiplayerHub/main";
   private static readonly FILE = join(APP_DIR, IS_WIN32 ? APP_NAME + ".exe" : APP_NAME);
@@ -54,7 +54,7 @@ export default class App {
 
   private static isNewerVersion(releaseTag: string): boolean {
     const [r0 = 0, r1 = 0, r2 = 0] = releaseTag.replace(/^v/, "").split(".").map(Number);
-    const [c0 = 0, c1 = 0, c2 = 0] = App.VERSION.split(".").map(Number);
+    const [c0 = 0, c1 = 0, c2 = 0] = APP_VERSION.split(".").map(Number);
     return r0 > c0 || (r0 === c0 && r1 > c1) || (r0 === c0 && r1 === c1 && r2 > c2);
   }
 
@@ -193,7 +193,6 @@ export default class App {
 
   static async setup() {
     await mkdir(APP_DIR, { recursive: true });
-    log(`${APP_NAME} v${App.VERSION}`, "info")
     await App.createEntry();
     await App.moveBinnary();
 
@@ -324,6 +323,7 @@ export default class App {
       while (instances.some(i => i.name === name)) name = "0" + name;
       await mkdir(join(INSTANCES_DIR, name), { recursive: true });
       await writeFile(join(INSTANCES_DIR, name, "deploy_key"), privateKey, "utf8");
+      await chmod(join(INSTANCES_DIR, name, "deploy_key"), 0o600);
 
       const entry: Instance = {
         id,

@@ -21,10 +21,9 @@ tryCatch(
 
     const closeInstance = async (serverName: string, ztNetworkId: string) => {
       UI.stopBadge();
-
       await Java.kill();
-
       Git.worldDisableRepeatedPush();
+
       if (Hosting.ip === Zerotier.ip) {
         await tryCatch(
           () => Git.syncWorld(serverName),

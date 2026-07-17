@@ -6,6 +6,10 @@ export default class GH {
   private static readonly GIT_PACKAGES = IS_WIN32 ? ["Git.Git", "GitHub.cli"] : ["git", "gh"];
   private static owner: string | null = null;
 
+  private static repoName(name: string): string {
+    return `MH-${name}`;
+  }
+
   private static async isInstalled(pkg: string) {
     return await isSuccess(async () => await run(IS_WIN32 ? `where ${pkg}` : `which ${pkg}`));
   };
@@ -71,19 +75,21 @@ export default class GH {
   }
 
   static async repoDelete(name: string): Promise<void> {
+    const repo = GH.repoName(name);
     await tryCatch(
-      () => run(`gh repo delete "${name}" --yes`, { inherit: true }),
-      `Failed to delete stale repository "${name}"`,
+      () => run(`gh repo delete "${repo}" --yes`, { inherit: true }),
+      `Failed to delete stale repository "${repo}"`,
       true
     );
   }
 
   static async repoCreate(name: string): Promise<string> {
+    const repo = GH.repoName(name);
     await tryCatch(
-      () => run(`gh repo create "${name}" --private`, { inherit: true }),
-      `Failed to create repository "${name}"`
+      () => run(`gh repo create "${repo}" --private`, { inherit: true }),
+      `Failed to create repository "${repo}"`
     );
-    return await GH.getSshUrl(name);
+    return await GH.getSshUrl(repo);
   }
 
   static async getOwner(): Promise<string> {
@@ -95,11 +101,12 @@ export default class GH {
     return GH.owner;
   }
 
-  static async addDeployKey(repo: string, pubKey: string): Promise<void> {
+  static async addDeployKey(name: string, pubKey: string): Promise<void> {
+    const repo = GH.repoName(name);
     const owner = await GH.getOwner();
     await tryCatch(
       () => run(
-        `gh api repos/${owner}/${repo}/keys -X POST -f title="MultiplayerHub-${repo}" -f key="${pubKey}" -f read_only=false`,
+        `gh api repos/${owner}/${repo}/keys -X POST -f title="MH-${repo}" -f key="${pubKey}" -f read_only=false`,
         { inherit: true }
       ),
       `Failed to add deploy key to ${owner}/${repo}`

@@ -1,4 +1,4 @@
-import { IS_WIN32, USER_DIR, APP_NAME } from "../constants";
+import { IS_WIN32, USER_DIR, APP_NAME, APP_VERSION } from "../constants";
 import { color, isSuccess, log, run, throwErr, tryCatch } from "../utils";
 import { createInterface } from "readline";
 import UI from "./ui";
@@ -58,6 +58,7 @@ export default class Process {
   }
 
   static async init() {
+    process.stdout.write(`\x1b]0;${APP_NAME} v${APP_VERSION}\x07`);
     process.chdir(USER_DIR);
 
     if (IS_WIN32) {

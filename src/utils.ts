@@ -14,7 +14,7 @@ export const run: Run = async (commands, options) => {
       const childEnv = { ...process.env } as Record<string, string>;
       if (options?.gitSshKeyName) {
         const key = join(INSTANCES_DIR, options.gitSshKeyName, "deploy_key").replace(/\\/g, "/");
-        childEnv['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -i ${key}`;
+        childEnv['GIT_SSH_COMMAND'] = `ssh -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes -i ${key}`;
       }
       const child = spawn(c, {
         shell: IS_WIN32 ? true : LINUX_SHELL,

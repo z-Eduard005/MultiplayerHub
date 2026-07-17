@@ -1,11 +1,11 @@
 const fs = require("fs");
 const readline = require("readline");
 
-const APP_FILE = "src/managers/app.ts";
+const APP_FILE = "src/constants.ts";
 const PKG_FILE = "package.json";
 const content = fs.readFileSync(APP_FILE, "utf8");
 const match = content.match(
-  /private static readonly VERSION = "(\d+\.\d+\.\d+)"/,
+  /export const APP_VERSION = "(\d+\.\d+\.\d+)"/,
 );
 const current = match ? match[1] : "unknown";
 
@@ -32,8 +32,8 @@ rl.question(`Current version: ${current}\nNew version: `, (input) => {
   }
 
   const newContent = content.replace(
-    /private static readonly VERSION = "\d+\.\d+\.\d+"/,
-    `private static readonly VERSION = "${trimmed}"`,
+    /export const APP_VERSION = "\d+\.\d+\.\d+"/,
+    `export const APP_VERSION = "${trimmed}"`,
   );
   fs.writeFileSync(APP_FILE, newContent);
 

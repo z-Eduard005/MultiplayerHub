@@ -1,6 +1,6 @@
 import { join } from "path";
 import { exists, tryCatch } from "../utils";
-import { readFile, rm, writeFile } from "fs/promises";
+import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import { GAME_DIR } from "../constants";
 
 export default class Minecraft {
@@ -45,19 +45,22 @@ export default class Minecraft {
     return "\n" + buffer;
   };
 
-  static addServer(ip: string, name: string) {
-    const serversBakFile = join(GAME_DIR, "home", name, "servers.dat.bak");
-    const serversFile = join(GAME_DIR, "home", name, "servers.dat");
+  static async addServer(ip: string, name: string) {
+    const userInstanceDataDir = join(GAME_DIR, "home", name);
+    const serversBakFile = join(userInstanceDataDir, "servers.dat.bak");
+    const serversFile = join(userInstanceDataDir, "servers.dat");
 
-    tryCatch(
+    await tryCatch(
       async () => {
-        await rm(serversBakFile, { force: true });
         const content = Minecraft.serverToNBT(ip, name);
-        let existing = "";
-        if (await exists(serversFile)) existing = await readFile(serversFile, "utf8");
-        if (existing !== content) await writeFile(serversFile, content, "utf8");
+        let fileExisting = "";
+
+        await rm(serversBakFile, { force: true, recursive: true });
+        await mkdir(userInstanceDataDir, { recursive: true });
+        if (await exists(serversFile)) fileExisting = await readFile(serversFile, "utf8");
+        if (fileExisting !== content) await writeFile(serversFile, content, "utf8");
       },
-      `The server was not added to the Minecraft menu automatically (try to run "${name}" client at least once)`,
+      "The server was not added to the Minecraft menu automatically",
       true
     );
   }

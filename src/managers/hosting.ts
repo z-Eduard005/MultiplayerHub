@@ -75,7 +75,7 @@ export default class Hosting {
         }, Hosting.INITIAL_LISTEN);
       });
 
-      Hosting.socket.on("message", (data, rinfo) => {
+      Hosting.socket.on("message", async (data, rinfo) => {
         let msg: BroadcastData;
         try {
           msg = JSON.parse(data.toString()) as BroadcastData;
@@ -99,7 +99,7 @@ export default class Hosting {
         }
 
         if (msg.type !== "HEARTBEAT" && msg.type !== "WHOIS_ACK") return;
-        Hosting.handleHostMessage(msg, instance, onUpdate);
+        await Hosting.handleHostMessage(msg, instance, onUpdate);
       });
 
       await tryCatch(
@@ -109,7 +109,7 @@ export default class Hosting {
     });
   }
 
-  private static handleHostMessage(msg: BroadcastData, instance: Instance, onUpdate: (owner: string) => void) {
+  private static async handleHostMessage(msg: BroadcastData, instance: Instance, onUpdate: (owner: string) => void) {
     if (Hosting.nickName !== msg.nickName) {
       Hosting.nickName = msg.nickName;
       if (msg.nickName) onUpdate(msg.nickName);
@@ -127,7 +127,7 @@ export default class Hosting {
       UI.startBadge("Leave Server (Ctrl+O)", Hosting.closeFlag);
       const fullIP = `${msg.ip}:${Java.PORT}`;
       log(`Someone is already playing on ${fullIP}`, "info");
-      Minecraft.addServer(fullIP, instance.name);
+      await Minecraft.addServer(fullIP, instance.name);
       Hosting.continueMonitoring(instance);
       return;
     }
@@ -151,7 +151,7 @@ export default class Hosting {
 
       const fullIP = `${msg.ip}:${Java.PORT}`;
       log(`Reconnecting to new host on ${fullIP}`, "info");
-      Minecraft.addServer(fullIP, instance.name);
+      await Minecraft.addServer(fullIP, instance.name);
       Hosting.continueMonitoring(instance);
     }
   }
@@ -221,9 +221,9 @@ export default class Hosting {
       );
     }, Hosting.HEARTBEAT_INTERVAL);
 
-    Hosting.confirmTimer = setTimeout(() => {
+    Hosting.confirmTimer = setTimeout(async () => {
       log("Wait, you will be the host now...", "info");
-      Minecraft.addServer(`${Zerotier.ip}:${Java.PORT}`, instance.name);
+      await Minecraft.addServer(`${Zerotier.ip}:${Java.PORT}`, instance.name);
       Hosting.resolve();
     }, Hosting.CONFIRM_TIMEOUT);
   }
