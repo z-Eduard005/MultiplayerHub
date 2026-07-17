@@ -458,7 +458,7 @@ export default class UI {
           return;
         }
         if (items.length > MAX_VISIBLE) {
-          if (key.length === 1 && /[a-zA-Z]/.test(key)) {
+          if (key.length === 1 && /[a-zA-Z0-9 ._-]/.test(key)) {
             filter += key;
             selectedIndex = 0;
             scrollOffset = 0;

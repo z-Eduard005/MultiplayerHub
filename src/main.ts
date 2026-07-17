@@ -59,7 +59,6 @@ tryCatch(
 
         const adminName = await Tlauncher.getAccountName();
         Hosting.nickName = adminName;
-        Hosting.ztNetworkId = ztNetworkId;
 
         await Hosting.startMonitoring(instance, closeFlag, (owner) => {
           const patch: Partial<Instance> = {};

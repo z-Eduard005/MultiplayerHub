@@ -52,4 +52,4 @@ export const APP_DIR = IS_WIN32
 export const INSTANCES_DIR = join(APP_DIR, "instances");
 export const CONFIG_FILE = join(APP_DIR, "config.json");
 export const VERSIONS_DIR = join(MC_DIR, "game", "versions");
-export const SERVER_READY_RGX = /\[minecraft\/DedicatedServer]: Done \(\d+\.\d+s\)!/;
+export const SERVER_READY_RGX = /Done \(\d+\.\d+s\)!/;

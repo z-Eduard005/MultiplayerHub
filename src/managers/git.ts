@@ -1,16 +1,23 @@
 import { cp, mkdir, readFile, rm, writeFile } from "fs/promises";
 import { exists, randomNum, run, log, tryCatch, throwErr } from "../utils";
-import { USER_NAME, INSTANCES_DIR } from "../constants";
+import { IS_WIN32, USER_NAME, INSTANCES_DIR } from "../constants";
 import { join } from "path";
 import GH from "./gh";
 import App from "./app";
 import UI from "./ui";
 
 export default class Git {
-  private static readonly PUSH_INTERVAL_MS = 1 * 60 * 1000;
-  private static readonly SERVER_GITIGNORE = "/world/\n";
+  private static readonly PUSH_INTERVAL_MS = 3 * 60 * 1000;
+  private static readonly SERVER_GITIGNORE = "/world/\n/world-git/\n";
   private static readonly WORLD_GITIGNORE = "*.lock\n*.tmp\n*.dat_old\n";
   static nodeWorldPushInterval: NodeJS.Timeout;
+
+  private static async syncCmd(src: string, dst: string) {
+    const cmd = IS_WIN32
+      ? `robocopy "${src}" "${dst}" /MIR /XD .git & if errorlevel 8 exit 1 & exit 0`
+      : `rsync -a --delete --exclude=.git "${src}/" "${dst}/"`;
+    await run(cmd, { inherit: true });
+  }
 
   static async initServer(serverName: string) {
     const serverDir = join(INSTANCES_DIR, serverName, "server");
@@ -46,6 +53,7 @@ export default class Git {
 
   static async initWorld(serverName: string, worldPath?: string) {
     const worldDir = join(INSTANCES_DIR, serverName, "server", "world");
+    const gitWorldDir = `${worldDir}-git`;
 
     await tryCatch(async () => {
       const inst = await App.getInstance(serverName);
@@ -53,7 +61,9 @@ export default class Git {
       if (!repoUrl) throwErr("No server url found. Please create a server first");
 
       await rm(worldDir, { recursive: true, force: true });
+      await rm(gitWorldDir, { recursive: true, force: true });
       await mkdir(worldDir, { recursive: true });
+      await mkdir(gitWorldDir, { recursive: true });
 
       if (worldPath) {
         let invalidPath = true;
@@ -71,7 +81,8 @@ export default class Git {
         }
       }
 
-      await writeFile(join(worldDir, ".gitignore"), Git.WORLD_GITIGNORE);
+      await Git.syncCmd(worldDir, gitWorldDir);
+      await writeFile(join(gitWorldDir, ".gitignore"), Git.WORLD_GITIGNORE);
       await run(
         [
           "git init -b world",
@@ -80,7 +91,7 @@ export default class Git {
           'git commit --allow-empty -m "init"',
           "git push --force origin world"
         ],
-        { cwd: worldDir, inherit: true, gitSshKeyName: serverName }
+        { cwd: gitWorldDir, inherit: true, gitSshKeyName: serverName }
       );
 
     }, "Error during world directory initialization");
@@ -100,16 +111,19 @@ export default class Git {
   static async push(branch: "server" | "world", serverName: string) {
     const serverDir = join(INSTANCES_DIR, serverName, "server");
     const worldDir = join(serverDir, "world");
+    const gitWorldDir = `${worldDir}-git`;
+
+    if (branch === "world") await Git.syncCmd(worldDir, gitWorldDir);
 
     await tryCatch(
       async () => {
         await run(
           [
             "git add -A",
-            `git commit --allow-empty --amend -m "${USER_NAME + randomNum(6)}-update"`,
+            `git commit --allow-empty --amend -m "${USER_NAME}_${randomNum(6)}"`,
             `git push --force origin ${branch}`,
           ],
-          { inherit: true, cwd: branch === "server" ? serverDir : worldDir, gitSshKeyName: serverName }
+          { inherit: true, cwd: branch === "server" ? serverDir : gitWorldDir, gitSshKeyName: serverName }
         );
       }, `Failed to push ${branch} updates to the cloud (check your internet)`
     );
@@ -117,32 +131,43 @@ export default class Git {
 
   static async syncWorld(serverName: string) {
     const worldDir = join(INSTANCES_DIR, serverName, "server", "world");
+    const gitWorldDir = `${worldDir}-git`;
     log("World synchronization...", "info");
 
     await tryCatch(async () => {
+      await Git.syncCmd(worldDir, gitWorldDir);
+
       await run(
         "git -c credential.helper= fetch --depth 1 origin world",
-        { inherit: true, cwd: worldDir, gitSshKeyName: serverName }
+        { inherit: true, cwd: gitWorldDir, gitSshKeyName: serverName }
       );
 
-      const unstagedChanges = await run("git status --porcelain", { cwd: worldDir });
+      const unstagedChanges = await run("git status --porcelain", { cwd: gitWorldDir });
       const [localHead, remoteHead] = await run(
         ["git rev-parse HEAD", "git rev-parse FETCH_HEAD"],
-        { cwd: worldDir }
+        { cwd: gitWorldDir }
       );
 
       if (unstagedChanges.length !== 0 && localHead === remoteHead) {
         await Git.push("world", serverName);
       } else if (localHead !== remoteHead) {
-        await run("git reset --hard FETCH_HEAD", { inherit: true, cwd: worldDir });
+        await run("git reset --hard FETCH_HEAD", { inherit: true, cwd: gitWorldDir });
+        await Git.syncCmd(gitWorldDir, worldDir);
       }
     }, "Failed world synchronization");
   };
 
-  private static async ensureRepo(dir: string, branch: string, url: string, serverName: string) {
+  private static async ensureRepo(dir: string, branch: "server" | "world", url: string, serverName: string) {
     if (!await exists(join(dir, ".git"))) {
       await rm(dir, { recursive: true, force: true });
       await mkdir(dir, { recursive: true });
+
+      const worldDir = join(INSTANCES_DIR, serverName, "server", "world");
+      if (branch === "world") await mkdir(worldDir, { recursive: true });
+
+      const gitignoreContent = branch === "world" ? Git.WORLD_GITIGNORE : Git.SERVER_GITIGNORE;
+      await writeFile(join(dir, ".gitignore"), gitignoreContent);
+
       await run(
         [
           `git init -b ${branch}`,
@@ -159,34 +184,35 @@ export default class Git {
     if (!inst) return;
 
     const serverDir = join(INSTANCES_DIR, serverName, "server");
-    const worldDir = join(serverDir, "world");
+    const gitWorldDir = `${join(serverDir, "world")}-git`;
     const repoUrl = inst.repoUrl;
     if (!repoUrl) throwErr(`No repo URL found for ${serverName} server`);
 
-    if (inst.owner !== "me") {
+    if (inst.owner !== "me" || !(await exists(serverDir))) {
       const spinner = UI.spinner();
       await tryCatch(async () => {
         await Git.ensureRepo(serverDir, "server", repoUrl!, serverName);
-        const existsIgnoreFile = await exists(join(serverDir, ".gitignore"));
-        if (!existsIgnoreFile) await writeFile(join(serverDir, ".gitignore"), Git.SERVER_GITIGNORE);
 
         log("Server synchronization...", "info");
         await run(
           ["git -c credential.helper= fetch --depth 1 origin server", "git reset --hard origin/server"],
           { inherit: true, cwd: serverDir, gitSshKeyName: serverName }
         );
-      }, "Failed server synchronization");
+      }, (err) => {
+        spinner.stop();
+        throwErr(`Failed server synchronization\n${err}`);
+      });
       spinner.stop();
     }
 
     const spinner = UI.spinner();
     await tryCatch(async () => {
-      await Git.ensureRepo(worldDir, "world", repoUrl!, serverName);
-      const existsIgnoreFile = await exists(join(worldDir, ".gitignore"));
-      if (!existsIgnoreFile) await writeFile(join(worldDir, ".gitignore"), Git.WORLD_GITIGNORE);
-
+      await Git.ensureRepo(gitWorldDir, "world", repoUrl!, serverName);
       await Git.syncWorld(serverName);
-    }, "Failed world synchronization");
+    }, (err) => {
+      spinner.stop();
+      throwErr(`Failed world synchronization\n${err}`);
+    });
     spinner.stop();
   }
 }

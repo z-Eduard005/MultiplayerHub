@@ -36,8 +36,6 @@ export default class Hosting {
   static state: "LOOKING" | "FOLLOWING" | "HOSTING" = "LOOKING";
   static ip: string | null = null;
   static nickName: string | null = null;
-  static ztNetworkId: string | null = null;
-
   static startMonitoring(
     instance: Instance,
     closeFlag: { value: boolean },

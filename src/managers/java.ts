@@ -67,7 +67,8 @@ export default class Java {
     await tryCatch(
       async () => {
         const propsPath = join(INSTANCES_DIR, serverName, "server", "server.properties");
-        const props = await readFile(propsPath, "utf8");
+        const props = (await exists(propsPath)) ? await readFile(propsPath, "utf8") : "";
+
         await writeFile(
           propsPath,
           Java.addProps(props, `server-ip=${ip}`),
@@ -204,7 +205,7 @@ export default class Java {
       await mkdir(serverDir, { recursive: true });
 
       if (loader === "Fabric") {
-        throwErr("Fabric server jar download not implemented yet");
+        throwErr("Fabric server jar download not implemented yet :)");
       }
 
       if (loader === "Forge") {
@@ -218,18 +219,29 @@ export default class Java {
         if (!forgeVer) forgeVer = data.promos[`${mcVer}-latest`];
         if (!forgeVer) throwErr(`No Forge version found for Minecraft ${mcVer}`);
 
-        jarName = `forge-${mcVer}-${forgeVer}.jar`;
         const jarInstallerName = `forge-${mcVer}-${forgeVer}-installer.jar`;
-        const url = `https://maven.minecraftforge.net/net/minecraftforge/forge/${mcVer}-${forgeVer}/${jarInstallerName}`;
+        let url = `https://maven.minecraftforge.net/net/minecraftforge/forge/${mcVer}-${forgeVer}/${jarInstallerName}`;
 
         const loader = UI.loader(`Downloading ${jarInstallerName}...`);
-        const dl = await fetch(url);
+        let dl = await fetch(url);
+        for (const suffix of [`-${mcVer}`, `-${mcVer}.0`]) {
+          if (dl.ok) break;
+          const altDir = `${mcVer}-${forgeVer}${suffix}`;
+          url = `https://maven.minecraftforge.net/net/minecraftforge/forge/${altDir}/forge-${altDir}-installer.jar`;
+          dl = await fetch(url);
+        }
+        if (!dl.ok) throwErr(`Download failed (${dl.status}) for ${jarInstallerName}`);
         const jarInstallerPath = join(serverDir, jarInstallerName);
         await writeFile(jarInstallerPath, Buffer.from(await dl.arrayBuffer()));
         loader.stop();
 
         await run(`"${javaPath}" -jar "${jarInstallerPath}" --installServer`, { cwd: serverDir, inherit: true });
         await rm(jarInstallerPath);
+
+        const jars = await readdir(serverDir);
+        const serverJar = jars.find(f => f.endsWith(".jar") && !f.includes("installer") && !f.includes("minecraft_server"));
+        if (!serverJar) throwErr("No server jar found after Forge installer");
+        jarName = serverJar!;
       }
 
       await run(`"${javaPath}" -jar "${jarName}" nogui`, { cwd: serverDir, inherit: true });
@@ -245,9 +257,16 @@ export default class Java {
       child.stdout.on('data', (data) => {
         if (SERVER_READY_RGX.test(data.toString())) child.stdin.write('stop\n');
       });
-      await new Promise<void>((resolve, reject) => {
-        child.on('close', (code) => code === 0 ? resolve() : reject(new Error(`exit ${code}`)));
-        child.on('error', reject);
+      const timer = setTimeout(() => child.kill(), 60_000);
+      await new Promise<void>(resolve => {
+        child.on('close', () => {
+          clearTimeout(timer);
+          resolve()
+        });
+        child.on('error', () => {
+          clearTimeout(timer);
+          resolve();
+        });
       });
 
       const propsPath = join(serverDir, "server.properties");
