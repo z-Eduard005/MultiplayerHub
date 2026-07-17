@@ -62,12 +62,9 @@ tryCatch(
         Hosting.nickName = adminName;
         Hosting.ztNetworkId = ztNetworkId;
 
-        await Hosting.startMonitoring(instance, closeFlag, (owner, ztNetworkId) => {
+        await Hosting.startMonitoring(instance, closeFlag, (owner) => {
           const patch: Partial<Instance> = {};
-          if (instance.owner !== "me") {
-            if (instance.owner !== null) patch.owner = owner;
-            if (ztNetworkId !== null) patch.zerotierID = ztNetworkId;
-          }
+          if (instance.owner !== "me" && instance.owner !== null) patch.owner = owner;
           App.updateInstance(serverName, patch);
         });
 
@@ -137,11 +134,14 @@ tryCatch(
         const footerText = { label: instanceError ? `\n${color(instanceError, "error")}` : "", center: false };
 
         const deleteLabel = inst.owner === "me" ? "Delete" : "Remove";
+        const isNotMine = inst.owner !== "me";
+        const ztNetworkItem: ListItem = { label: "# Zerotier Network ID", blocked: true };
         const items: (string | ListItem)[] = ready
           ? [
             "/ Play on Server",
             "_ Copy Invite string",
             "* Change Memory allocation",
+            ...(isNotMine ? [ztNetworkItem] : []),
             { value: "- Delete server", label: color(`- ${deleteLabel} server`, "error") },
           ]
           : [
@@ -153,6 +153,7 @@ tryCatch(
           title: `${serverName.replace(/^0+/, "")} (${inst.version})`,
           desc,
           footerText,
+          ...(ready && isNotMine ? { lockable: true, action: { label: "□ Unlock", run: () => { } } } : {}),
         };
 
         const { value, cancelled } = await UI.list(items, opts);
@@ -194,6 +195,20 @@ tryCatch(
             continue;
           }
           await runInstance(serverName);
+        }
+        if (value === "# Zerotier Network ID") {
+          const { value: newId, cancelled } = await UI.input({
+            title: "# Zerotier Network ID",
+            desc: `${inst.owner}'s Network ID`,
+            defaultValue: inst.zerotierID ?? "",
+            filter: /[a-z0-9]/,
+          });
+          if (cancelled) continue;
+          if (newId) {
+            const patch: Partial<Instance> = {};
+            patch.zerotierID = newId;
+            await App.updateInstance(serverName, patch);
+          }
         }
         if (value === "- Delete server") {
           const { value: confirm, cancelled } = await UI.input({
@@ -314,7 +329,7 @@ tryCatch(
       while (true) {
         const { value, cancelled } = await UI.list(
           [
-            { label: "Zerotier Network ID", blocked: true },
+            { label: "# Zerotier Network ID", blocked: true },
           ],
           {
             title: "Settings",
@@ -325,10 +340,10 @@ tryCatch(
         );
         if (cancelled) return;
 
-        if (value === "Zerotier Network ID") {
+        if (value === "# Zerotier Network ID") {
           const config = await App.getConfig(CONFIG_FILE);
           const { value: newId, cancelled: inputCancelled } = await UI.input({
-            title: "ZeroTier Network ID",
+            title: "# Zerotier Network ID",
             desc: `Your personal Network ID\nYou can get it from - ${Zerotier.ADMIN_URL}`,
             defaultValue: (config["zerotierID"] as string) ?? "",
             filter: /[a-z0-9]/
@@ -469,7 +484,7 @@ tryCatch(
               const raw = Buffer.from(v, "base64").toString("utf8");
               const data = JSON.parse(raw);
               if (instances.some(i => i.id === data.id)) return "Server already added";
-            } catch {}
+            } catch { }
             return null;
           },
         });

@@ -11,7 +11,6 @@ type BroadcastData = {
   type: "HEARTBEAT" | "WHOIS" | "WHOIS_ACK";
   ip: string;
   nickName: string | null;
-  ztNetworkId: string | null;
   instanceId: string | null;
 };
 
@@ -42,7 +41,7 @@ export default class Hosting {
   static startMonitoring(
     instance: Instance,
     closeFlag: { value: boolean },
-    onUpdate: (owner: string, ztNetworkId: string | null) => void
+    onUpdate: (owner: string) => void
   ): Promise<void> {
     return new Promise(async (resolve) => {
       Hosting.resolve = resolve;
@@ -91,7 +90,6 @@ export default class Hosting {
               type: "WHOIS_ACK",
               ip: Zerotier.ip,
               nickName: Hosting.nickName,
-              ztNetworkId: Hosting.ztNetworkId,
               instanceId: instance.id,
             })),
             Hosting.BROADCAST_PORT,
@@ -111,13 +109,10 @@ export default class Hosting {
     });
   }
 
-  private static handleHostMessage(msg: BroadcastData, instance: Instance, onUpdate: (owner: string, ztNetworkId: string | null) => void) {
-    const newNick = msg.nickName;
-    const newZtId = msg.ztNetworkId;
-    if (Hosting.nickName !== newNick || Hosting.ztNetworkId !== newZtId) {
-      Hosting.nickName = newNick;
-      Hosting.ztNetworkId = newZtId;
-      onUpdate(newNick ?? "", newZtId);
+  private static handleHostMessage(msg: BroadcastData, instance: Instance, onUpdate: (owner: string) => void) {
+    if (Hosting.nickName !== msg.nickName) {
+      Hosting.nickName = msg.nickName;
+      if (msg.nickName) onUpdate(msg.nickName);
     }
 
     if (Hosting.state === "LOOKING") {
@@ -208,7 +203,7 @@ export default class Hosting {
       await tryCatch(
         () => new Promise<void>((resolve, reject) => {
           const heartbeat = instance.owner === "me"
-            ? { type: "HEARTBEAT", ip: Zerotier.ip, nickName: Hosting.nickName, ztNetworkId: Hosting.ztNetworkId, instanceId: instance.id }
+            ? { type: "HEARTBEAT", ip: Zerotier.ip, nickName: Hosting.nickName, instanceId: instance.id }
             : { type: "HEARTBEAT", ip: Zerotier.ip, instanceId: instance.id };
           Hosting.socket.send(
             Buffer.from(JSON.stringify(heartbeat)),
