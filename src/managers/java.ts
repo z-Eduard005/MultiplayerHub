@@ -51,7 +51,8 @@ export default class Java {
           windowsHide: true,
         }
       );
-    }, "Error while starting java server")
+    }, "Error while starting java server");
+
     Java.process.stdout.setEncoding("utf8");
   }
 

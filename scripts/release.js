@@ -3,14 +3,14 @@ const fs = require("fs");
 
 execSync("git fetch --prune --prune-tags origin", { stdio: "inherit" });
 
-const file = "src/managers/app.ts";
+const file = "src/constants.ts";
 const content = fs.readFileSync(file, "utf8");
 const match = content.match(
-  /private static readonly VERSION = "(\d+\.\d+\.\d+)"/,
+  /export const APP_VERSION = "(\d+\.\d+\.\d+)"/,
 );
 
 if (!match) {
-  console.error("Failed to read version from app.ts");
+  console.error("Failed to read version from constants.ts");
   process.exit(1);
 }
 

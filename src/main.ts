@@ -95,11 +95,13 @@ tryCatch(
             }
             resolve();
           });
+
+          const playerName = instance.owner === "me" ? adminName : instance.owner;
           Java.process?.stdout.on("data", (data) => {
             process.stdout.write(data);
 
-            if (data.includes(`${instance.owner} joined the game`)) {
-              Java.runMCCommand(`op ${instance.owner}`);
+            if (data.includes(`${playerName} joined the game`)) {
+              Java.runMCCommand(`op ${playerName}`);
             }
 
             if (SERVER_READY_RGX.test(data)) {

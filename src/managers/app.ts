@@ -134,9 +134,9 @@ export default class App {
 
   private static async checkUpdates() {
     await tryCatch(async () => {
-      const spiner = UI.spinner();
+      const spinner = UI.spinner();
       const res = await fetch(App.RELEASE_URL);
-      spiner.stop();
+      spinner.stop();
       if (!res.ok) {
         log(`Update check failed: ${res.statusText}`, "warning");
         return;
