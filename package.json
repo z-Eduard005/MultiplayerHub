@@ -1,12 +1,12 @@
 {
   "name": "multiplayerhub",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "z-Eduard005",
   "license": "ISC",
   "description": "MultiplayerHub - free, decentralized Minecraft server provisioning program, that uses p2p networking and automatic host election to eliminate the need for dedicated server infrastructure.",
   "scripts": {
     "ts-handle": "tsup src/main.ts --format cjs --target node18 --out-dir build --treeshake --minify",
-    "pkg-handle": "pkg build/main.js -o build/MultiplayerHub.exe -t node18-win-x64 && pkg build/main.js -o build/MultiplayerHub -t node18-linux-x64 && chmod +x build/MultiplayerHub",
+    "pkg-handle": "pkg build/main.js -o build/MultiplayerHub.exe -t node18-win-x64 && node scripts/set-win-icon.js && pkg build/main.js -o build/MultiplayerHub -t node18-linux-x64 && chmod +x build/MultiplayerHub",
     "build": "npm run ts-handle && npm run pkg-handle",
     "release": "node scripts/bump-version.js && npm run build && node scripts/release.js",
     "test": "npm run build && cp build/MultiplayerHub ~/Downloads/MultiplayerHub && ~/Downloads/MultiplayerHub"
@@ -17,6 +17,7 @@
     "globals": "^16.3.0",
     "jiti": "^2.5.1",
     "pkg": "^5.8.1",
+    "rcedit": "^5.0.2",
     "tsup": "^8.4.0",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.41.0"
