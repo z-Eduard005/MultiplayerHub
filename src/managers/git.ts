@@ -7,8 +7,8 @@ import App from "./app";
 import UI from "./ui";
 
 export default class Git {
-  private static readonly PUSH_INTERVAL_MS = 3 * 60 * 1000;
-  private static readonly SERVER_GITIGNORE = "/world/\n/world-git/\n";
+  private static readonly PUSH_INTERVAL_MS = 20 * 60 * 1000;
+  private static readonly SERVER_GITIGNORE = "/world/\n/world-git/\n/logs/\n";
   private static readonly WORLD_GITIGNORE = "*.lock\n*.tmp\n*.dat_old\n*.dat_new\n";
   static nodeWorldPushInterval: NodeJS.Timeout;
 
@@ -206,6 +206,19 @@ export default class Git {
         spinner.stop();
         throwErr(`Failed server synchronization\n${err}`);
       });
+      spinner.stop();
+    }
+
+    if (inst.owner === "me") {
+      log("Server uploading...", "info");
+      const spinner = UI.spinner();
+      await tryCatch(
+        () => Git.push("server", serverName),
+        (err) => {
+          spinner.stop();
+          throwErr(err);
+        }
+      );
       spinner.stop();
     }
 

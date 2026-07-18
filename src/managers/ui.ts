@@ -361,7 +361,7 @@ export default class UI {
             const plain = l.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "");
             const BADGE_STYLE = item.badgeColor === "green" ? "\x1B[32m\x1B[1m" : item.badgeColor === "yellow" ? "\x1B[33m\x1B[1m" : "\x1B[48;5;196m\x1B[38;5;255m";
             const displayBadge = item.badge || (item.blocked ? "locked" : undefined);
-            const truncatedBadge = displayBadge && displayBadge.length > 10 ? displayBadge.slice(0, 10) + "..." : displayBadge;
+            const truncatedBadge = displayBadge && displayBadge.length > 7 ? displayBadge.slice(0, 7) + ".." : displayBadge;
             const badgeText = truncatedBadge && i === 0 ? ` ${BADGE_STYLE}${truncatedBadge}${bg}${fg}` : "";
             const rightFill = Math.max(0, LIST_WIDTH - UI.PADDING - plain.length - scrollBarWidth - (truncatedBadge && i === 0 ? truncatedBadge.length + 1 : 0));
             const style = i === 0 ? "\x1B[1m" : "";
@@ -400,17 +400,24 @@ export default class UI {
             items.push(...newNormalized);
             rerender();
           }
-          if (layoutOptions?.resolveOn) {
-            const resolveValue = await layoutOptions.resolveOn();
-            if (resolveValue) {
-              cleanup();
-              resolve({ value: resolveValue, index: -1, cancelled: false });
-            }
-          }
         };
         refreshInterval();
         const id = setInterval(refreshInterval, 3000);
         cleanup = () => { clearInterval(id); origCleanup(); };
+      }
+
+      if (layoutOptions?.resolveOn) {
+        const resolvePoll = async () => {
+          const resolveValue = await layoutOptions.resolveOn!();
+          if (resolveValue) {
+            cleanup();
+            resolve({ value: resolveValue, index: -1, cancelled: false });
+          }
+        };
+        resolvePoll();
+        const resolveId = setInterval(resolvePoll, 3000);
+        const origCleanup2 = cleanup;
+        cleanup = () => { clearInterval(resolveId); origCleanup2(); };
       }
 
       keyHandler = (key) => {
