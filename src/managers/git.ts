@@ -1,5 +1,5 @@
 import { cp, mkdir, readFile, rm, writeFile } from "fs/promises";
-import { exists, randomNum, run, log, tryCatch, throwErr } from "../utils";
+import { exists, randomNum, run, retryRun, log, tryCatch, throwErr } from "../utils";
 import { IS_WIN32, USER_NAME, INSTANCES_DIR } from "../constants";
 import { join } from "path";
 import GH from "./gh";
@@ -9,14 +9,18 @@ import UI from "./ui";
 export default class Git {
   private static readonly PUSH_INTERVAL_MS = 3 * 60 * 1000;
   private static readonly SERVER_GITIGNORE = "/world/\n/world-git/\n";
-  private static readonly WORLD_GITIGNORE = "*.lock\n*.tmp\n*.dat_old\n";
+  private static readonly WORLD_GITIGNORE = "*.lock\n*.tmp\n*.dat_old\n*.dat_new\n";
   static nodeWorldPushInterval: NodeJS.Timeout;
 
   private static async syncCmd(src: string, dst: string) {
+    const patterns = Git.WORLD_GITIGNORE.split("\n").filter(Boolean);
+    const excludeArgs = IS_WIN32
+      ? patterns.map((p) => `/XF ${p}`).join(" ")
+      : patterns.map((p) => `--exclude=${p}`).join(" ");
     const cmd = IS_WIN32
-      ? `robocopy "${src}" "${dst}" /MIR /XD .git & if errorlevel 8 exit 1 & exit 0`
-      : `rsync -a --delete --exclude=.git "${src}/" "${dst}/"`;
-    await run(cmd, { inherit: true });
+      ? `robocopy "${src}" "${dst}" /MIR /XD .git ${excludeArgs} /R:3 /W:2 & if errorlevel 16 exit 1 & exit 0`
+      : `rsync -a --delete --exclude=.git ${excludeArgs} "${src}/" "${dst}/" || [ $? -eq 24 ]`;
+    await retryRun(() => run(cmd, { inherit: true }));
   }
 
   static async initServer(serverName: string) {
