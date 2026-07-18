@@ -46,7 +46,7 @@ export default class Git {
           `git remote add origin ${repoUrl}`,
           "git add -A",
           'git commit --allow-empty -m "init"',
-          "git push --force origin server"
+          "git push --progress --force origin server"
         ],
         { cwd: serverDir, inherit: true, gitSshKeyName: serverName }
       );
@@ -93,7 +93,7 @@ export default class Git {
           `git remote add origin ${repoUrl}`,
           "git add -A",
           'git commit --allow-empty -m "init"',
-          "git push --force origin world"
+          "git push --progress --force origin world"
         ],
         { cwd: gitWorldDir, inherit: true, gitSshKeyName: serverName }
       );
@@ -116,6 +116,7 @@ export default class Git {
     const serverDir = join(INSTANCES_DIR, serverName, "server");
     const worldDir = join(serverDir, "world");
     const gitWorldDir = `${worldDir}-git`;
+    const cwd = branch === "server" ? serverDir : gitWorldDir;
 
     if (branch === "world") await Git.syncCmd(worldDir, gitWorldDir);
 
@@ -124,11 +125,24 @@ export default class Git {
         await run(
           [
             "git add -A",
-            `git commit --allow-empty --amend -m "${USER_NAME}_${randomNum(6)}"`,
-            `git push --force origin ${branch}`,
+            `git commit --allow-empty -m "${USER_NAME}_${randomNum(6)}"`,
           ],
-          { inherit: true, cwd: branch === "server" ? serverDir : gitWorldDir, gitSshKeyName: serverName }
+          { inherit: true, cwd, gitSshKeyName: serverName }
         );
+
+        await tryCatch(
+          async () => {
+            await run(
+              `git push --progress origin ${branch}`,
+              { inherit: true, cwd, gitSshKeyName: serverName }
+            );
+          }, async () => {
+            await run(
+              `git push --progress --force origin ${branch}`,
+              { inherit: true, cwd, gitSshKeyName: serverName }
+            );
+          }
+        )
       }, `Failed to push ${branch} updates to the cloud (check your internet)`
     );
   }
@@ -211,25 +225,12 @@ export default class Git {
 
     if (inst.owner === "me") {
       log("Server uploading...", "info");
-      const spinner = UI.spinner();
-      await tryCatch(
-        () => Git.push("server", serverName),
-        (err) => {
-          spinner.stop();
-          throwErr(err);
-        }
-      );
-      spinner.stop();
+      await Git.push("server", serverName);
     }
 
-    const spinner = UI.spinner();
     await tryCatch(async () => {
       await Git.ensureRepo(gitWorldDir, "world", repoUrl!, serverName);
       await Git.syncWorld(serverName);
-    }, (err) => {
-      spinner.stop();
-      throwErr(`Failed world synchronization\n${err}`);
-    });
-    spinner.stop();
+    }, `Failed world synchronization`)
   }
 }

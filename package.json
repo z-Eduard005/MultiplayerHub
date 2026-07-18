@@ -1,6 +1,6 @@
 {
   "name": "multiplayerhub",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "author": "z-Eduard005",
   "license": "ISC",
   "description": "MultiplayerHub - free, decentralized Minecraft server provisioning program, that uses p2p networking and automatic host election to eliminate the need for dedicated server infrastructure.",

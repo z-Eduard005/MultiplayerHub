@@ -33,7 +33,7 @@ export default class Java {
     Java.process = await tryCatch(async () => {
       const serverDir = join(INSTANCES_DIR, serverName, "server");
       const files = await readdir(serverDir);
-      const serverJar = files.find(f => f.endsWith(".jar") && !f.includes("server"));
+      const serverJar = files.find(f => f.endsWith(".jar") && !f.includes("installer") && !f.includes("minecraft_server"));
       if (!serverJar) throwErr(`No jar file found in ${serverDir}`);
 
       return spawn(
@@ -179,7 +179,8 @@ export default class Java {
     return Java.isSupportedVersion(version) ? version : { label: version, badge: "Not Supported", badgeColor: "red", blocked: true };
   }
 
-  private static javaVersion(mcVersion: string) {
+  private static javaVersion(input: string) {
+    const mcVersion = input.replace(/^(?:Fabric|Forge)\s+/, "");
     if (Java.versionGte(mcVersion, "26.1")) return 25;
     if (Java.versionGte(mcVersion, "1.20.5")) return 21;
     if (Java.versionGte(mcVersion, "1.18")) return 17;
@@ -205,7 +206,30 @@ export default class Java {
       await mkdir(serverDir, { recursive: true });
 
       if (loader === "Fabric") {
-        throwErr("Fabric server jar download not implemented yet :)");
+        log("Fetching Fabric versions...", "info");
+        const spinner = UI.spinner();
+
+        const loaderRes = await fetch(`https://meta.fabricmc.net/v2/versions/loader/${mcVer}`);
+        const loaderData = (await loaderRes.json()) as { loader: { version: string; stable: boolean } }[];
+        const loaderEntry = loaderData.find(e => e.loader.stable) || loaderData[0];
+        if (!loaderEntry) throwErr(`No Fabric loader found for Minecraft ${mcVer}`);
+        const loaderVer = loaderEntry?.loader.version;
+
+        const installerRes = await fetch("https://meta.fabricmc.net/v2/versions/installer");
+        const installerData = (await installerRes.json()) as { version: string; stable: boolean }[];
+        const installerEntry = installerData.find(e => e.stable) || installerData[0];
+        if (!installerEntry) throwErr("No Fabric installer found");
+        const installerVer = installerEntry?.version;
+
+        spinner.stop();
+
+        const jarUrl = `https://meta.fabricmc.net/v2/versions/loader/${mcVer}/${loaderVer}/${installerVer}/server/jar`;
+        const dlLoader = UI.loader(`Downloading Fabric server for Minecraft ${mcVer}...`);
+        const dl = await fetch(jarUrl);
+        if (!dl.ok) throwErr(`Download failed (${dl.status}) for Fabric server ${mcVer}`);
+        jarName = `fabric-server-${mcVer}-loader-${loaderVer}.jar`;
+        await writeFile(join(serverDir, jarName), Buffer.from(await dl.arrayBuffer()));
+        dlLoader.stop();
       }
 
       if (loader === "Forge") {
