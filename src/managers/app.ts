@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { join, basename, normalize } from "path";
-import { copyFile, readFile, writeFile, mkdir, rename, rm, readdir, chmod } from "fs/promises";
+import { copyFile, readFile, writeFile, mkdir, rename, rm, readdir, chmod, cp } from "fs/promises";
 import {
   IS_WIN32,
   DESKTOP_DIR,
@@ -40,6 +40,7 @@ export type Instance = {
   zerotierID?: string;
   repoUrl?: string;
   inviteString?: string;
+  playersDataSync?: boolean;
 }
 
 export default class App {
@@ -232,7 +233,7 @@ export default class App {
     const config = await App.getConfig(CONFIG_FILE);
     const instances = (config["instances"] as Instance[]) ?? [];
     const zerotierID = config["zerotierID"] as string | undefined;
-    const entry: Instance = { id: randomUUID(), name: serverName, owner: "me", state: "init", version: serverVersion };
+    const entry: Instance = { id: randomUUID(), name: serverName, owner: "me", state: "init", version: serverVersion, playersDataSync: true };
     if (zerotierID) entry.zerotierID = zerotierID;
     instances.push(entry);
     await App.putConfig(CONFIG_FILE, { instances });
@@ -300,6 +301,7 @@ export default class App {
         privateKey,
         repoUrl,
         mcVersion,
+        playersDataSync: instance!.playersDataSync,
       };
 
       return Buffer.from(JSON.stringify(data)).toString("base64");
@@ -310,8 +312,8 @@ export default class App {
     return await tryCatch(async () => {
       const raw = Buffer.from(invite, "base64").toString("utf8");
       const data = JSON.parse(raw);
-      const { id, networkId, nickName, serverName, privateKey, repoUrl, mcVersion } = data;
-      if (!id || !networkId || !nickName || !serverName || !privateKey || !repoUrl || !mcVersion) {
+      const { id, networkId, nickName, serverName, privateKey, repoUrl, mcVersion, playersDataSync } = data;
+      if (!id || !networkId || !nickName || !serverName || !privateKey || !repoUrl || !mcVersion || typeof playersDataSync !== "boolean") {
         throwErr("Invalid invite string: missing required fields");
       }
 
@@ -333,11 +335,34 @@ export default class App {
         version: mcVersion,
         zerotierID: networkId,
         repoUrl: repoUrl,
+        playersDataSync: playersDataSync,
       };
       instances.push(entry);
       await App.putConfig(CONFIG_FILE, { instances });
       return name;
     }, "Failed to decode invite string");
+  }
+
+  static async syncClientData(direction: "save" | "load", serverName: string) {
+    const inst = await App.getInstance(serverName);
+    if (inst?.playersDataSync === false) return;
+    if (direction === "save" && inst?.owner !== "me") return;
+    if (direction === "load" && inst?.owner === "me") return;
+
+    const homeDir = join(GAME_DIR, "home", serverName);
+    const serverDataDir = join(INSTANCES_DIR, serverName, "server", "owner-client-data");
+
+    const src = direction === "save" ? homeDir : serverDataDir;
+    const dst = direction === "save" ? serverDataDir : homeDir;
+
+    await mkdir(serverDataDir, { recursive: true });
+    for (const folder of ["mods", "config"]) {
+      const srcPath = join(src, folder);
+      if (await exists(srcPath)) {
+        await rm(join(dst, folder), { recursive: true, force: true });
+        await cp(srcPath, join(dst, folder), { recursive: true, force: true });
+      }
+    }
   }
 
   static async copyToClipboard(text: string) {

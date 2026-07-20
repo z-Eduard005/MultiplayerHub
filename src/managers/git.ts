@@ -216,6 +216,8 @@ export default class Git {
           ["git -c credential.helper= fetch --depth 1 origin server", "git reset --hard origin/server"],
           { inherit: true, cwd: serverDir, gitSshKeyName: serverName }
         );
+
+        await App.syncClientData("load", serverName);
       }, (err) => {
         spinner.stop();
         throwErr(`Failed server synchronization\n${err}`);
@@ -224,6 +226,7 @@ export default class Git {
     }
 
     if (inst.owner === "me") {
+      await App.syncClientData("save", serverName);
       log("Server uploading...", "info");
       await Git.push("server", serverName);
     }

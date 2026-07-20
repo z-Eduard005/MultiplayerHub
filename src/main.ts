@@ -1,7 +1,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { CONFIG_FILE, GAME_DIR, IS_WIN32, SERVER_READY_RGX } from "./constants";
-import { log, tryCatch, throwErr, color } from "./utils";
+import { CONFIG_FILE, INSTANCES_DIR, IS_WIN32, SERVER_READY_RGX } from "./constants";
+import { log, tryCatch, throwErr, color, run } from "./utils";
 import UI, { type ListItem } from "./managers/ui";
 import Zerotier from "./managers/zerotier";
 import Git from "./managers/git";
@@ -131,7 +131,8 @@ tryCatch(
           ? `\n${color("Setup incomplete", "warning")}`
           : inst.owner !== "me"
             ? `\nOwner: ${inst.owner}`
-            : `\nYou can add server-side mods and configs by just placing them in:\n"${join(GAME_DIR, "home", serverName)}"`
+            : `For client-side mods & configs use:\n${join(".tlauncher", "legacy", "Minecraft", "game", "home", serverName)}`
+
         const footerText = { label: instanceError ? `\n${color(instanceError, "error")}` : "", center: false };
 
         const deleteLabel = inst.owner === "me" ? "Delete" : "Remove";
@@ -142,7 +143,10 @@ tryCatch(
             "/ Play on Server",
             "_ Copy Invite string",
             "* Change Memory allocation",
-            ...(isNotMine ? [ztNetworkItem] : []),
+            ...(isNotMine
+              ? [ztNetworkItem]
+              : [{ label: "@ Data Sync Between Players", badge: inst.playersDataSync !== false ? "ON" : "OFF", badgeColor: (inst.playersDataSync !== false ? "green" : "red") as "green" | "red" }]
+            ),
             { value: "- Delete server", label: color(`- ${deleteLabel} server`, "error") },
           ]
           : [
@@ -154,7 +158,16 @@ tryCatch(
           title: `${serverName.replace(/^0+/, "")} (${inst.version})`,
           desc,
           footerText,
-          ...(ready && isNotMine ? { lockable: true, action: { label: "□ Unlock", run: () => { } } } : {}),
+          ...(ready ? (isNotMine
+            ? { lockable: true, action: { label: "□ Unlock", run: () => { } } }
+            : {
+              action: {
+                label: "□ Open Server Folder", run: () => {
+                  run(`${IS_WIN32 ? 'explorer.exe' : "xdg-open"} "${join(INSTANCES_DIR, serverName, "server")}"`);
+                }
+              }
+            }
+          ) : {}),
         };
 
         const { value, cancelled } = await UI.list(items, opts);
@@ -192,6 +205,11 @@ tryCatch(
             continue;
           }
           await runInstance(serverName);
+        }
+        if (value === "@ Data Sync Between Players") {
+          const current = inst.playersDataSync;
+          await App.updateInstance(serverName, { playersDataSync: current === false ? true : false });
+          continue;
         }
         if (value === "# Zerotier Network ID") {
           const { value: newId, cancelled } = await UI.input({
