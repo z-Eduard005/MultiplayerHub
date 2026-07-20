@@ -7,7 +7,7 @@ import App from "./app";
 import UI from "./ui";
 
 export default class Git {
-  private static readonly PUSH_INTERVAL_MS = 20 * 60 * 1000;
+  private static readonly PUSH_INTERVAL_MS = 24 * 60 * 1000;
   private static readonly SERVER_GITIGNORE = "/world/\n/world-git/\n/logs/\n";
   private static readonly WORLD_GITIGNORE = "*.lock\n*.tmp\n*.dat_old\n*.dat_new\n";
   static nodeWorldPushInterval: NodeJS.Timeout;

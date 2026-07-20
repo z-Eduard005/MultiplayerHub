@@ -37,6 +37,7 @@ tryCatch(
 
     const runInstance = async (serverName: string) => {
       UI.restoreMainScreen();
+      log(`Starting ${serverName} server...`, "info");
       instanceError = null;
       const closeFlag = { value: false };
 
@@ -130,7 +131,7 @@ tryCatch(
           ? `\n${color("Setup incomplete", "warning")}`
           : inst.owner !== "me"
             ? `\nOwner: ${inst.owner}`
-            : `\nYou can add mods and configs by just placing them in:\n"${join(GAME_DIR, "home", serverName)}"`
+            : `\nYou can add server-side mods and configs by just placing them in:\n"${join(GAME_DIR, "home", serverName)}"`
         const footerText = { label: instanceError ? `\n${color(instanceError, "error")}` : "", center: false };
 
         const deleteLabel = inst.owner === "me" ? "Delete" : "Remove";
@@ -164,11 +165,7 @@ tryCatch(
           break;
         }
         if (value === "_ Copy Invite string") {
-          let invite = inst?.inviteString
-          if (!invite) {
-            invite = await App.generateInviteString(serverName);
-            await App.updateInstance(serverName, { inviteString: invite });
-          }
+          const invite = await App.generateInviteString(serverName);
           await App.copyToClipboard(invite);
         }
         if (value === "* Change Memory allocation") {
@@ -278,8 +275,7 @@ tryCatch(
       log("Server creation...", "info");
       await Git.initServer(serverName);
       await Git.initWorld(serverName, "");
-      const invite = await App.generateInviteString(serverName);
-      await App.updateInstance(serverName, { state: "ready", inviteString: invite });
+      await App.updateInstance(serverName, { state: "ready" });
       await instanceEntryUi(serverName);
     };
 
@@ -457,8 +453,8 @@ tryCatch(
             });
 
             await Git.initWorld(serverName, value);
-            const invite = await App.generateInviteString(serverName);
-            await App.updateInstance(serverName, { state: "ready", inviteString: invite });
+            await App.generateInviteString(serverName);
+            await App.updateInstance(serverName, { state: "ready" });
 
             step = 4;
           }

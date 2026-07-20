@@ -97,7 +97,7 @@ export default class Zerotier {
     }
   }
 
-  private static ipToInt(ip: string): number {
+  static ipToInt(ip: string): number {
     const parts = ip.split(".");
     const [a, b, c, d] = parts as [string, string, string, string];
     return ((+a << 24) | (+b << 16) | (+c << 8) | +d) >>> 0;

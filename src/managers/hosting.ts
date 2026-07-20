@@ -139,7 +139,7 @@ export default class Hosting {
       return;
     }
 
-    if (Hosting.state === "HOSTING" && msg.ip < Zerotier.ip!) {
+    if (Hosting.state === "HOSTING" && Zerotier.ipToInt(msg.ip) < Zerotier.ipToInt(Zerotier.ip!)) {
       clearInterval(Hosting.heartBeatTimer);
       clearTimeout(Hosting.confirmTimer);
       Hosting.state = "FOLLOWING";

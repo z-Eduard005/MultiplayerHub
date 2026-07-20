@@ -94,7 +94,7 @@ export default class UI {
   static spinner(): { stop: () => void } {
     let i = 0;
     const id = setInterval(() => {
-      process.stderr.write(`\r\x1B[2K${UI.LOADER_FRAMES[i++ % 10]}`);
+      process.stderr.write(`\r\x1B[2K\x1B[38;5;27m${UI.LOADER_FRAMES[i++ % 10]}\x1B[39m`);
     }, 80);
 
     return {
