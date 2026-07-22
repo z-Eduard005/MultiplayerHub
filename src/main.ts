@@ -1,6 +1,6 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { CONFIG_FILE, INSTANCES_DIR, IS_WIN32, SERVER_READY_RGX } from "./constants";
+import { CONFIG_FILE, INSTANCES_DIR, IS_WIN32 } from "./constants";
 import { log, tryCatch, throwErr, color, run } from "./utils";
 import UI, { type ListItem } from "./managers/ui";
 import Zerotier from "./managers/zerotier";
@@ -8,7 +8,6 @@ import Git from "./managers/git";
 import Java from "./managers/java";
 import Tlauncher from "./managers/tlauncher";
 import Process from "./managers/process";
-import Hosting from "./managers/hosting";
 import App, { type Instance } from "./managers/app";
 
 tryCatch(
@@ -17,114 +16,12 @@ tryCatch(
     await App.setup();
 
     let mainOptionIndex = 0;
-    let instanceError: string | null = null;
+    const instanceError: { value: string | null } = { value: null };
 
-    const closeInstance = async (serverName: string, ztNetworkId: string) => {
-      UI.stopBadge();
-      await Java.kill();
-      Git.worldDisableRepeatedPush();
-
-      if (Hosting.ip === Zerotier.ip) {
-        await tryCatch(
-          () => Git.syncWorld(serverName),
-          err => log(err, "error")
-        );
-      }
-      await Hosting.close();
-
-      await Zerotier.leave(ztNetworkId);
-    }
-
-    const runInstance = async (serverName: string) => {
-      UI.restoreMainScreen();
-      log(`Starting ${serverName} server...`, "info");
-      instanceError = null;
-      const closeFlag = { value: false };
-
-      const config = await App.getConfig(CONFIG_FILE);
-      const instances = (config["instances"] as Instance[]) ?? [];
-      const instance = instances.find(i => i.name === serverName);
-      if (!instance) return;
-      const ztNetworkId = instance.zerotierID ?? config["zerotierID"] as string;
-
-      await tryCatch(async () => {
-        const ram = instance.ram ?? Java.getDefaultRam();
-        if (ram < Java.MIN_RAM_MB) throwErr("You don't have enough memory to play on the server :(");
-
-        await Zerotier.start();
-        await Zerotier.join(ztNetworkId, instance.owner === "me");
-        Zerotier.ip = await Zerotier.getIP();
-
-        await Tlauncher.chooseVersion(serverName);
-        Tlauncher.open();
-
-        const adminName = await Tlauncher.getAccountName();
-        Hosting.nickName = adminName;
-
-        await Hosting.startMonitoring(instance, closeFlag, (owner) => {
-          const patch: Partial<Instance> = {};
-          if (instance.owner !== "me" && instance.owner !== null) patch.owner = owner;
-          App.updateInstance(serverName, patch);
-        });
-
-        if (closeFlag.value) {
-          if (Hosting.closeReason) instanceError = Hosting.closeReason;
-          await closeInstance(serverName, ztNetworkId);
-          return;
-        }
-
-        await Git.fetchInstanceData(serverName);
-
-        await Java.applyServerIp(Zerotier.ip!, serverName);
-        await Java.start(serverName, ram, instance.version);
-
-        const closePoll = setInterval(() => {
-          if (closeFlag.value) {
-            clearInterval(closePoll);
-            Java.kill();
-          }
-        }, 200);
-
-        await new Promise<void>((resolve) => {
-          Java.process?.on("error", async (err) => {
-            throwErr(`Error starting Java server. Check path to Java: ${Java.getJavaPath(instance.version)}\n${err}`);
-          });
-          Java.process?.on("close", async (code) => {
-            if (code !== 0 && !closeFlag.value) {
-              throwErr(`Server terminated with an error (code: ${code})`);
-            }
-            resolve();
-          });
-
-          const playerName = instance.owner === "me" ? adminName : instance.owner;
-          Java.process?.stdout.on("data", (data) => {
-            process.stdout.write(data);
-
-            if (data.includes(`${playerName} joined the game`)) {
-              Java.runMCCommand(`op ${playerName}`);
-            }
-
-            if (SERVER_READY_RGX.test(data)) {
-              log(`You have started the server on port: ${Zerotier.ip}:${Java.PORT}`, "success");
-              UI.startBadge("Close and Save Progress! (Ctrl+O)", closeFlag);
-
-              Git.worldEnableRepeatedPush(serverName);
-            }
-          });
-        });
-
-        clearInterval(closePoll);
-        if (closeFlag.value) await closeInstance(serverName, ztNetworkId);
-      }, async (err) => {
-        instanceError = err;
-        await closeInstance(serverName, ztNetworkId);
-      });
-    };
-
-    const instanceEntryUi = async (serverName: string) => {
+    const instanceUi = async (serverName: string) => {
       while (true) {
         const inst = await App.getInstance(serverName);
-        if (!inst) { instanceError = null; break; }
+        if (!inst) { instanceError.value = null; break; }
 
         const ready = inst.state === "ready";
         const desc = !ready
@@ -133,7 +30,7 @@ tryCatch(
             ? `\nOwner: ${inst.owner}`
             : `For client-side mods & configs use:\n${join(".tlauncher", "legacy", "Minecraft", "game", "home", serverName)}`
 
-        const footerText = { label: instanceError ? `\n${color(instanceError, "error")}` : "", center: false };
+        const footerText = { label: instanceError.value ? `\n${color(instanceError.value, "error")}` : "", center: false };
 
         const deleteLabel = inst.owner === "me" ? "Delete" : "Remove";
         const isNotMine = inst.owner !== "me";
@@ -173,8 +70,8 @@ tryCatch(
         const { value, cancelled } = await UI.list(items, opts);
 
         if (value === "> Continue setup" && inst.state !== "ready") {
-          await finishServerSetup(serverName, inst.state, inst.version);
-          instanceError = null;
+          await finishInstanceSetup(serverName, inst.state, inst.version);
+          instanceError.value = null;
           break;
         }
         if (value === "_ Copy Invite string") {
@@ -201,10 +98,10 @@ tryCatch(
         if (value === "/ Play on Server") {
           const valid = await Tlauncher.isValidAccount();
           if (!valid) {
-            instanceError = 'You should choose microsoft or ely.by account in tlauncher and press "Play" once!';
+            instanceError.value = 'You should choose microsoft or ely.by account in tlauncher and press "Play" once!';
             continue;
           }
-          await runInstance(serverName);
+          await App.runInstance(serverName, instanceError);
         }
         if (value === "@ Data Sync Between Players") {
           const current = inst.playersDataSync;
@@ -234,11 +131,11 @@ tryCatch(
           if (cancelled) continue;
           if (confirm === "DELETE") {
             await App.removeInstance(serverName);
-            instanceError = null;
+            instanceError.value = null;
             break;
           }
         }
-        if (cancelled) { instanceError = null; break; }
+        if (cancelled) { instanceError.value = null; break; }
       }
     };
 
@@ -273,16 +170,11 @@ tryCatch(
       }
     };
 
-    const finishServerSetup = async (serverName: string, state: "init" | "invited" | "installed", version: string) => {
+    const finishInstanceSetup = async (serverName: string, state: "init" | "invited" | "installed", version: string) => {
       if (state === "invited") {
         const installed = await initInstanceVersion(serverName, version);
-        if (!installed) {
-          await instanceEntryUi(serverName);
-          return;
-        }
-        await App.updateInstance(serverName, { state: "ready" });
-        await instanceEntryUi(serverName);
-        return;
+        if (installed) await App.updateInstance(serverName, { state: "ready" });
+        return instanceUi(serverName);
       }
 
       if (state === "init") {
@@ -294,7 +186,7 @@ tryCatch(
       await Git.initServer(serverName);
       await Git.initWorld(serverName, "");
       await App.updateInstance(serverName, { state: "ready" });
-      await instanceEntryUi(serverName);
+      await instanceUi(serverName);
     };
 
     const chooseServerFlow = async () => {
@@ -326,7 +218,7 @@ tryCatch(
         if (!selected) continue;
 
         if (selected.state === "ready") {
-          await instanceEntryUi(value);
+          await instanceUi(value);
           continue;
         }
 
@@ -335,7 +227,7 @@ tryCatch(
           continue;
         }
 
-        await instanceEntryUi(value);
+        await instanceUi(value);
       }
     };
 
@@ -478,7 +370,7 @@ tryCatch(
           }
         }
         if (step === 4) {
-          await instanceEntryUi(serverName);
+          await instanceUi(serverName);
           await chooseServerFlow();
           continue;
         }
@@ -509,7 +401,7 @@ tryCatch(
 
         const installed = await initInstanceVersion(invitedName, invitedInst!.version);
         if (installed) {
-          await finishServerSetup(invitedName, "invited", invitedInst!.version);
+          await finishInstanceSetup(invitedName, "invited", invitedInst!.version);
         }
         continue;
       };

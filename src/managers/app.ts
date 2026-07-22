@@ -13,6 +13,7 @@ import {
   CONFIG_FILE,
   VERSIONS_DIR,
   GAME_DIR,
+  SERVER_READY_RGX,
 } from "../constants";
 import { run, retryRun, log, throwErr, tryCatch, exists } from "../utils";
 import Zerotier from "./zerotier";
@@ -21,6 +22,8 @@ import Process from "./process";
 import GH from "./gh";
 import UI from "./ui";
 import Java from "./java";
+import Hosting from "./hosting";
+import Git from "./git";
 
 type GithubRelease = {
   tag_name: string;
@@ -34,12 +37,11 @@ export type Instance = {
   id: string;
   name: string;
   owner: string;
-  state: "init" | "invited" | "installed" | "ready";
+  state: "init" | "installed" | "invited" | "ready";
   version: string;
   ram?: number;
   zerotierID?: string;
   repoUrl?: string;
-  inviteString?: string;
   playersDataSync?: boolean;
 }
 
@@ -51,7 +53,7 @@ export default class App {
   private static readonly SHORTCUT_FILE = join(APP_DIR, `${APP_NAME}.lnk`);
   private static readonly DESKTOP_ENTRY_PATH = join(USER_DIR, ".local", "share", "applications");
   private static readonly DESKTOP_ENTRY_FILE = join(App.DESKTOP_ENTRY_PATH, APP_NAME + ".desktop");
-  static readonly PENDING_DIR = join(INSTANCES_DIR, "PENDING_DIR");
+  private static readonly PENDING_DIR = join(INSTANCES_DIR, "PENDING_DIR");
 
   private static isNewerVersion(releaseTag: string): boolean {
     const [r0 = 0, r1 = 0, r2 = 0] = releaseTag.replace(/^v/, "").split(".").map(Number);
@@ -213,7 +215,7 @@ export default class App {
     await GH.auth();
 
     if (config["installed"] !== true) {
-      log("MultiplayerHub successfully installed :)", "success");
+      log(`${APP_NAME} successfully installed :)`, "success");
       await App.putConfig(CONFIG_FILE, { installed: true });
     }
 
@@ -264,7 +266,6 @@ export default class App {
       await rm(join(VERSIONS_DIR, name), { recursive: true, force: true });
 
       const instanceHomeDir = join(GAME_DIR, "home", name);
-      await rm(instanceHomeDir + ".bak", { recursive: true, force: true });
       if (await exists(instanceHomeDir)) await rename(instanceHomeDir, instanceHomeDir + ".bak");
 
       const inst = instances.find(i => i.name === name);
@@ -375,4 +376,105 @@ export default class App {
       log("Copied to clipboard", "success");
     }, "Failed to copy to clipboard", true);
   }
+
+  static async closeInstance(name: string, networkId: string) {
+    UI.stopBadge();
+    await Java.kill();
+    Git.worldDisableRepeatedPush();
+
+    if (Hosting.ip === Zerotier.ip) {
+      await tryCatch(
+        () => Git.syncWorld(name),
+        err => log(err, "error")
+      );
+    }
+    await Hosting.close();
+
+    await Zerotier.leave(networkId);
+  }
+
+  static async runInstance(serverName: string, instanceError: { value: string | null }) {
+    UI.restoreMainScreen();
+    log(`Starting ${serverName} server...`, "info");
+    const closeFlag = { value: false };
+
+    const config = await App.getConfig(CONFIG_FILE);
+    const instances = (config["instances"] as Instance[]) ?? [];
+    const instance = instances.find(i => i.name === serverName);
+    if (!instance) return;
+    const ztNetworkId = instance.zerotierID ?? config["zerotierID"] as string;
+
+    await tryCatch(async () => {
+      const ram = instance.ram ?? Java.getDefaultRam();
+      if (ram < Java.MIN_RAM_MB) throwErr("You don't have enough memory to play on the server :(");
+
+      await Zerotier.start();
+      await Zerotier.join(ztNetworkId, instance.owner === "me");
+      Zerotier.ip = await Zerotier.getIP();
+
+      await Tlauncher.chooseVersion(serverName);
+      Tlauncher.open();
+
+      const adminName = await Tlauncher.getAccountName();
+      Hosting.nickName = adminName;
+
+      await Hosting.startMonitoring(instance, closeFlag, (owner) => {
+        const patch: Partial<Instance> = {};
+        if (instance.owner !== "me" && instance.owner !== null) patch.owner = owner;
+        App.updateInstance(serverName, patch);
+      });
+
+      if (closeFlag.value) {
+        if (Hosting.closeReason) instanceError.value = Hosting.closeReason;
+        await App.closeInstance(serverName, ztNetworkId);
+        return;
+      }
+
+      await Git.fetchInstanceData(serverName);
+
+      await Java.applyServerIp(Zerotier.ip!, serverName);
+      await Java.start(serverName, ram, instance.version);
+
+      const closePoll = setInterval(() => {
+        if (closeFlag.value) {
+          clearInterval(closePoll);
+          Java.kill();
+        }
+      }, 200);
+
+      await new Promise<void>((resolve) => {
+        Java.process?.on("error", async (err) => {
+          throwErr(`Error starting Java server. Check path to Java: ${Java.getJavaPath(instance.version)}\n${err}`);
+        });
+        Java.process?.on("close", async (code) => {
+          if (code !== 0 && !closeFlag.value) {
+            throwErr(`Server terminated with an error (code: ${code})`);
+          }
+          resolve();
+        });
+
+        const playerName = instance.owner === "me" ? adminName : instance.owner;
+        Java.process?.stdout.on("data", (data) => {
+          process.stdout.write(data);
+
+          if (data.includes(`${playerName} joined the game`)) {
+            Java.runMCCommand(`op ${playerName}`);
+          }
+
+          if (SERVER_READY_RGX.test(data)) {
+            log(`You have started the server on port: ${Zerotier.ip}:${Java.PORT}`, "success");
+            UI.startBadge("Close and Save Progress! (Ctrl+O)", closeFlag);
+
+            Git.worldEnableRepeatedPush(serverName);
+          }
+        });
+      });
+
+      clearInterval(closePoll);
+      if (closeFlag.value) await App.closeInstance(serverName, ztNetworkId);
+    }, async (err) => {
+      instanceError.value = err;
+      await App.closeInstance(serverName, ztNetworkId);
+    });
+  };
 }

@@ -1,5 +1,5 @@
 import { cp, mkdir, readFile, rm, writeFile } from "fs/promises";
-import { exists, randomNum, run, retryRun, log, tryCatch, throwErr } from "../utils";
+import { exists, run, retryRun, log, tryCatch, throwErr } from "../utils";
 import { IS_WIN32, USER_NAME, INSTANCES_DIR } from "../constants";
 import { join } from "path";
 import GH from "./gh";
@@ -104,7 +104,6 @@ export default class Git {
   static worldEnableRepeatedPush(serverName: string) {
     Git.nodeWorldPushInterval = setInterval(async () => {
       await Git.push("world", serverName);
-      log("The world has been sent to the cloud", "info");
     }, Git.PUSH_INTERVAL_MS);
   }
 
@@ -118,14 +117,17 @@ export default class Git {
     const gitWorldDir = `${worldDir}-git`;
     const cwd = branch === "server" ? serverDir : gitWorldDir;
 
-    if (branch === "world") await Git.syncCmd(worldDir, gitWorldDir);
+    if (branch === "world") {
+      log("Saving world to the cloud...", "info");
+      await Git.syncCmd(worldDir, gitWorldDir);
+    }
 
     await tryCatch(
       async () => {
         await run(
           [
             "git add -A",
-            `git commit --allow-empty -m "${USER_NAME}_${randomNum(6)}"`,
+            `git commit --allow-empty -m "${USER_NAME}_${new Date().toISOString().slice(2, 10)}"`,
           ],
           { inherit: true, cwd, gitSshKeyName: serverName }
         );
@@ -143,6 +145,8 @@ export default class Git {
             );
           }
         )
+
+        if (branch === "world") log("The world has been sent to the cloud", "success");
       }, `Failed to push ${branch} updates to the cloud (check your internet)`
     );
   }
