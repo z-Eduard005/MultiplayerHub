@@ -50,6 +50,7 @@ export default class App {
   private static readonly RAW_GITHUB_URL = "https://raw.githubusercontent.com/z-Eduard005/MultiplayerHub/main";
   private static readonly FILE = join(APP_DIR, IS_WIN32 ? APP_NAME + ".exe" : APP_NAME);
   private static readonly ICON_FILE = join(APP_DIR, IS_WIN32 ? "icon.ico" : "icon.png");
+  private static readonly SERVER_ICON_FILE = join(APP_DIR, "server-icon.png");
   private static readonly SHORTCUT_FILE = join(APP_DIR, `${APP_NAME}.lnk`);
   private static readonly DESKTOP_ENTRY_PATH = join(USER_DIR, ".local", "share", "applications");
   private static readonly DESKTOP_ENTRY_FILE = join(App.DESKTOP_ENTRY_PATH, APP_NAME + ".desktop");
@@ -78,13 +79,33 @@ export default class App {
     );
   }
 
+  private static async detectDriPrime(): Promise<string> {
+    try {
+      const result = await run(
+        `onboard=$(lspci -nnk 2>/dev/null | grep -B1 "Onboard" | grep "1002" | awk '{print $1}')
+amd_gpus=$(lspci -nnd ::03xx 2>/dev/null | grep "1002")
+if [ -n "$onboard" ]; then
+  bus_id=$(echo "$amd_gpus" | grep -v "$onboard" | head -1 | awk '{print $1}')
+else
+  bus_id=$(echo "$amd_gpus" | head -1 | awk '{print $1}')
+fi
+[ -n "$bus_id" ] && echo "pci-0000_$(echo "$bus_id" | tr ':.' '_')"`
+      );
+      return result || "1";
+    } catch {
+      return "1";
+    }
+  }
+
   private static async createEntry() {
     return await tryCatch(async () => {
-      if (!(await exists(App.ICON_FILE))) {
-        await run(
-          `curl -fsSL ${App.RAW_GITHUB_URL}/assets/${basename(App.ICON_FILE)} -o "${App.ICON_FILE}"`,
-          { inherit: true }
-        );
+      for (const iconFile of [App.ICON_FILE, App.SERVER_ICON_FILE]) {
+        if (!(await exists(iconFile))) {
+          await run(
+            `curl -fsSL ${App.RAW_GITHUB_URL}/assets/${basename(iconFile)} -o "${iconFile}"`,
+            { inherit: true }
+          );
+        }
       }
 
       if (IS_WIN32 && !(await exists(App.SHORTCUT_FILE))) {
@@ -105,11 +126,13 @@ export default class App {
 
         await copyFile(App.SHORTCUT_FILE, join(DESKTOP_DIR, basename(App.SHORTCUT_FILE)));
       } else if (!IS_WIN32) {
+        const driPrime = await App.detectDriPrime();
+
         await writeFile(
           App.DESKTOP_ENTRY_FILE,
           `[Desktop Entry]
           Name=${APP_NAME}
-          Exec=${LINUX_SHELL} -lc "DRI_PRIME=1 ${App.FILE}"
+          Exec=${LINUX_SHELL} -lc "DRI_PRIME=${driPrime} ${App.FILE}"
           Terminal=true
           Type=Application
           Icon=${App.ICON_FILE}
@@ -397,6 +420,7 @@ export default class App {
     UI.restoreMainScreen();
     log(`Starting ${serverName} server...`, "info");
     const closeFlag = { value: false };
+    const serverIconFile = join(INSTANCES_DIR, serverName, "server", basename(App.SERVER_ICON_FILE));
 
     const config = await App.getConfig(CONFIG_FILE);
     const instances = (config["instances"] as Instance[]) ?? [];
@@ -408,6 +432,8 @@ export default class App {
       const ram = instance.ram ?? Java.getDefaultRam();
       if (ram < Java.MIN_RAM_MB) throwErr("You don't have enough memory to play on the server :(");
 
+      if (!(await exists(serverIconFile))) await copyFile(App.SERVER_ICON_FILE, serverIconFile);
+
       await Zerotier.start();
       await Zerotier.join(ztNetworkId, instance.owner === "me");
       Zerotier.ip = await Zerotier.getIP();
@@ -415,8 +441,8 @@ export default class App {
       await Tlauncher.chooseVersion(serverName);
       Tlauncher.open();
 
-      const adminName = await Tlauncher.getAccountName();
-      Hosting.nickName = adminName;
+      const ownerName = await Tlauncher.getAccountName();
+      Hosting.nickName = ownerName;
 
       await Hosting.startMonitoring(instance, closeFlag, (owner) => {
         const patch: Partial<Instance> = {};
@@ -453,7 +479,7 @@ export default class App {
           resolve();
         });
 
-        const playerName = instance.owner === "me" ? adminName : instance.owner;
+        const playerName = instance.owner === "me" ? ownerName : instance.owner;
         Java.process?.stdout.on("data", (data) => {
           process.stdout.write(data);
 

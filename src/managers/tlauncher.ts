@@ -11,7 +11,7 @@ export default class Tlauncher {
   private static readonly FILENAME = IS_WIN32 ? "LL.exe" : "LL.sh";
   private static readonly FILE = join(MC_DIR, Tlauncher.FILENAME);
   private static readonly INSTALLER_URL = "https://dl.llaun.ch/legacy/installer";
-  private static readonly FEDORA_MC_INSTALLER = 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/z-Eduard005/fedora-mc-installer/main/mc-installer.sh)"';
+  private static readonly LINUX_MC_INSTALLER_URL = "https://raw.githubusercontent.com/z-Eduard005/linux-mc-installer/main/installer.sh)";
   private static readonly ALLOWED_ACCOUNT_TYPES = ["login.account.type=minecraft", "login.account.type=ely"]
   private static readonly REQUIRED_PROPS = [
     "minecraft.versions.old_alpha=false",
@@ -120,14 +120,14 @@ export default class Tlauncher {
     if (await exists(MC_DIR)) return;
 
     log(
-      `This server works only with legacy-launcher${IS_WIN32 ? "\nInstall tlauncher first (from opening link) and try later..." : " and steam-proton setup\nInstalling using 'github.com/z-Eduard005/fedora-mc-installer' script..."}`, "warning"
+      `This server works only with legacy-launcher${IS_WIN32 ? "\nInstall tlauncher first (from opening link) and try later..." : ` and steam-proton setup\nInstalling using script: '${Tlauncher.LINUX_MC_INSTALLER_URL}'`}`, "warning"
     );
 
     if (IS_WIN32) log("\nPlease restart, after tlauncher installed", "success");
     await tryCatch(
       async () => {
         return await run(
-          IS_WIN32 ? `start "" ${Tlauncher.INSTALLER_URL}` : Tlauncher.FEDORA_MC_INSTALLER,
+          IS_WIN32 ? `start "" ${Tlauncher.INSTALLER_URL}` : `sh -c "$(curl -fsSL ${Tlauncher.LINUX_MC_INSTALLER_URL})"`,
           { inherit: true }
         );
       }, "Error while installing tlauncher (check your internet)"
