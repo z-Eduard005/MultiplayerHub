@@ -15,6 +15,7 @@ import {
   GAME_DIR,
   SERVER_READY_RGX,
 } from "../constants";
+import { deflateSync, inflateSync } from "zlib";
 import { run, retryRun, log, throwErr, tryCatch, exists } from "../utils";
 import Zerotier from "./zerotier";
 import Tlauncher from "./tlauncher";
@@ -45,6 +46,17 @@ export type Instance = {
   playersDataSync?: boolean;
 }
 
+export type Invite = {
+  id: string;
+  networkId: string;
+  nickName: string;
+  serverName: string;
+  privateKey: string;
+  repoUrl: string;
+  mcVersion: string;
+  playersDataSync: boolean;
+}
+
 export default class App {
   private static readonly RELEASE_URL = "https://api.github.com/repos/z-Eduard005/MultiplayerHub/releases/latest"
   private static readonly RAW_GITHUB_URL = "https://raw.githubusercontent.com/z-Eduard005/MultiplayerHub/main";
@@ -65,16 +77,16 @@ export default class App {
   static async getConfig(file: string): Promise<Record<string, unknown>> {
     if (!(await exists(file))) return {};
 
-    return await tryCatch(
-      async () => JSON.parse(await readFile(file, "utf8")),
-      `Failed to read config file: ${file}`
-    );
+    return await tryCatch(async () => {
+      const raw = await readFile(file, "utf8");
+      return App.decode(raw) as Record<string, unknown>;
+    }, `Failed to read config file: ${file}`);
   }
 
   static async putConfig(file: string, data: Record<string, unknown>) {
     const existing = await App.getConfig(file);
     await tryCatch(
-      () => writeFile(file, JSON.stringify({ ...existing, ...data }, null, 2)),
+      () => writeFile(file, App.encode({ ...existing, ...data })),
       `Failed to write config file: ${file}`
     );
   }
@@ -328,14 +340,13 @@ fi
         playersDataSync: instance!.playersDataSync,
       };
 
-      return Buffer.from(JSON.stringify(data)).toString("base64");
+      return App.encode(data);
     }, "Failed to generate invite string");
   }
 
   static async decodeInviteString(invite: string): Promise<string> {
     return await tryCatch(async () => {
-      const raw = Buffer.from(invite, "base64").toString("utf8");
-      const data = JSON.parse(raw);
+      const data = App.decode(invite) as Invite;
       const { id, networkId, nickName, serverName, privateKey, repoUrl, mcVersion, playersDataSync } = data;
       if (!id || !networkId || !nickName || !serverName || !privateKey || !repoUrl || !mcVersion || typeof playersDataSync !== "boolean") {
         throwErr("Invalid invite string: missing required fields");
@@ -398,6 +409,14 @@ fi
       }
       log("Copied to clipboard", "success");
     }, "Failed to copy to clipboard", true);
+  }
+
+  static encode(data: Record<string, unknown>): string {
+    return deflateSync(Buffer.from(JSON.stringify(data))).toString("base64url");
+  }
+
+  static decode(str: string): Record<string, unknown> {
+    return JSON.parse(inflateSync(Buffer.from(str, "base64url")).toString());
   }
 
   static async closeInstance(name: string, networkId: string) {

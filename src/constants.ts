@@ -50,6 +50,6 @@ export const APP_DIR = IS_WIN32
   ? join(USER_DIR, "AppData", "Roaming", "MultiplayerHub")
   : join(USER_DIR, ".config", "MultiplayerHub");
 export const INSTANCES_DIR = join(APP_DIR, "instances");
-export const CONFIG_FILE = join(APP_DIR, "config.json");
+export const CONFIG_FILE = join(APP_DIR, ".config");
 export const VERSIONS_DIR = join(GAME_DIR, "versions");
 export const SERVER_READY_RGX = /Done \(\d+\.\d+s\)!/;

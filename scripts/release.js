@@ -3,18 +3,7 @@ const fs = require("fs");
 
 execSync("git fetch --prune --prune-tags origin", { stdio: "inherit" });
 
-const file = "src/constants.ts";
-const content = fs.readFileSync(file, "utf8");
-const match = content.match(
-  /export const APP_VERSION = "(\d+\.\d+\.\d+)"/,
-);
-
-if (!match) {
-  console.error("Failed to read version from constants.ts");
-  process.exit(1);
-}
-
-const version = match[1];
+const version = JSON.parse(fs.readFileSync("package.json", "utf8")).version;
 execSync(
   `gh release create v${version} build/MultiplayerHub.exe build/MultiplayerHub --title "v${version}" --notes ""`,
   { stdio: "inherit" },

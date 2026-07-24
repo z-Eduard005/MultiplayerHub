@@ -8,7 +8,7 @@ import Git from "./managers/git";
 import Java from "./managers/java";
 import Tlauncher from "./managers/tlauncher";
 import Process from "./managers/process";
-import App, { type Instance } from "./managers/app";
+import App, { type Instance, type Invite } from "./managers/app";
 
 tryCatch(
   async () => {
@@ -387,9 +387,8 @@ tryCatch(
           maxLen: 2048,
           validate: (v: string) => {
             try {
-              const raw = Buffer.from(v, "base64").toString("utf8");
-              const data = JSON.parse(raw);
-              if (instances.some(i => i.id === data.id)) return "Server already added";
+              const data = App.decode(v) as Invite;
+              if (instances.some(i => i.id === data?.id)) return "Server already added";
             } catch { }
             return null;
           },

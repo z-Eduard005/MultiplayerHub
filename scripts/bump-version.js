@@ -3,11 +3,7 @@ const readline = require("readline");
 
 const APP_FILE = "src/constants.ts";
 const PKG_FILE = "package.json";
-const content = fs.readFileSync(APP_FILE, "utf8");
-const match = content.match(
-  /export const APP_VERSION = "(\d+\.\d+\.\d+)"/,
-);
-const current = match ? match[1] : "unknown";
+const current = JSON.parse(fs.readFileSync(PKG_FILE, "utf8")).version;
 
 let completed = false;
 
@@ -31,6 +27,7 @@ rl.question(`Current version: ${current}\nNew version: `, (input) => {
     process.exit(1);
   }
 
+  const content = fs.readFileSync(APP_FILE, "utf8");
   const newContent = content.replace(
     /export const APP_VERSION = "\d+\.\d+\.\d+"/,
     `export const APP_VERSION = "${trimmed}"`,

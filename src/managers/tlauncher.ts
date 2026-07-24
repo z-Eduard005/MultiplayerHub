@@ -120,7 +120,7 @@ export default class Tlauncher {
     if (await exists(MC_DIR)) return;
 
     log(
-      `This server works only with legacy-launcher${IS_WIN32 ? "\nInstall tlauncher first (from opening link) and try later..." : ` and steam-proton setup\nInstalling using script: '${Tlauncher.LINUX_MC_INSTALLER_URL}'`}`, "warning"
+      `This server works only with legacy-launcher${IS_WIN32 ? "\nInstall tlauncher first (from opening link) and try later..." : ` and steam-proton setup\nInstalling using script:\n'${Tlauncher.LINUX_MC_INSTALLER_URL}'`}`, "warning"
     );
 
     if (IS_WIN32) log("\nPlease restart, after tlauncher installed", "success");
