@@ -313,7 +313,7 @@ export default class UI {
         if (selectedIndex >= pool.length) selectedIndex = Math.max(0, pool.length - 1);
 
         const scrollNeeded = pool.length > MAX_VISIBLE;
-        const searchVisible = items.length > 5;
+        const searchVisible = items.length > 6;
 
         const searchPrefix = "> ";
         const maxSearchWidth = LIST_WIDTH - 2 * UI.PADDING - searchPrefix.length - 1;
@@ -464,7 +464,7 @@ export default class UI {
           rerender();
           return;
         }
-        if (items.length > 5) {
+        if (items.length > 6) {
           if (key.length === 1 && /[a-zA-Z0-9 ._-]/.test(key)) {
             filter += key;
             selectedIndex = 0;

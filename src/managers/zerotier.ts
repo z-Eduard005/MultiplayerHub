@@ -1,6 +1,6 @@
 import { spawn } from "child_process";
 import { IS_WIN32, USER_NAME } from "../constants";
-import { exists, retryRun, run, log, sudo, throwErr, tryCatch } from "../utils"
+import { exists, retryRun, run, log, sudo, throwErr, tryCatch, isSuccess } from "../utils"
 import { setTimeout as setTimeoutPromise } from "timers/promises";
 import { join } from "path";
 import { networkInterfaces, tmpdir } from "os";
@@ -144,22 +144,24 @@ export default class Zerotier {
           );
         });
       } else {
-        await run(`curl -fsSL ${Zerotier.INSTALLER_URL}`, {
-          inherit: true,
-        });
+        await run(`curl -fsSL ${Zerotier.INSTALLER_URL}`, { inherit: true });
         await tryCatch(
-          () => {
-            return run(
-              [
-                sudo("systemctl start zerotier-one"),
-                sudo("firewall-cmd --add-port=9993/udp --permanent"),
-                sudo("firewall-cmd --reload"),
-                sudo("systemctl restart zerotier-one"),
-              ], { inherit: true }
-            );
+          async () => {
+            await run(sudo("systemctl start zerotier-one"), { inherit: true });
+
+            const firewalldActive = await isSuccess(async () => await run(`systemctl is-active --quiet firewalld`));
+            if (firewalldActive) {
+              await run(
+                [
+                  sudo("firewall-cmd --add-port=9993/udp --permanent"),
+                  sudo("firewall-cmd --reload"),
+                ], { inherit: true }
+              );
+            }
+
+            await run(sudo("systemctl restart zerotier-one"), { inherit: true });
           },
-          "Some zerotier settings not set",
-          true
+          "Firewall blocked zerotier service"
         );
         await Zerotier.setupSudoers();
       }

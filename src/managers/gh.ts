@@ -1,9 +1,10 @@
 import { IS_WIN32 } from "../constants";
-import { log, run, tryCatch, isSuccess, retryRun, sudo, throwErr } from "../utils";
+import { log, run, tryCatch, isSuccess, retryRun, throwErr } from "../utils";
+import App from "./app";
 
 export default class GH {
   private static readonly AUTH_URL = "https://github.com/login/device";
-  private static readonly GIT_PACKAGES = IS_WIN32 ? ["Git.Git", "GitHub.cli"] : ["git", "gh"];
+  private static readonly GIT_PACKAGES = IS_WIN32 ? ["Git.Git", "GitHub.cli"] : { "git": "git", "gh": "gh" };
   private static owner: string | null = null;
 
   private static repoName(name: string): string {
@@ -39,16 +40,12 @@ export default class GH {
       }
 
       await tryCatch(
-        () => run(`winget install ${GH.GIT_PACKAGES.join(" ")}`, { inherit: true }),
+        () => run(`winget install ${(GH.GIT_PACKAGES as string[]).join(" ")}`, { inherit: true }),
         "Git packages are not installed, this might have happened earlier",
         true
       );
     } else {
-      await tryCatch(
-        async () => {
-          await run(sudo(`dnf install -y ${GH.GIT_PACKAGES.join(" ")}`), { inherit: true });
-        }, "Error while installing git"
-      )
+      App.pmInstall(GH.GIT_PACKAGES as Record<string, string>);
     }
   }
 

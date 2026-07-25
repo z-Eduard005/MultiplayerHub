@@ -16,7 +16,7 @@ import {
   SERVER_READY_RGX,
 } from "../constants";
 import { deflateSync, inflateSync } from "zlib";
-import { run, retryRun, log, throwErr, tryCatch, exists } from "../utils";
+import { run, retryRun, log, throwErr, tryCatch, exists, isSuccess, sudo } from "../utils";
 import Zerotier from "./zerotier";
 import Tlauncher from "./tlauncher";
 import Process from "./process";
@@ -67,6 +67,13 @@ export default class App {
   private static readonly DESKTOP_ENTRY_PATH = join(USER_DIR, ".local", "share", "applications");
   private static readonly DESKTOP_ENTRY_FILE = join(App.DESKTOP_ENTRY_PATH, APP_NAME + ".desktop");
   private static readonly PENDING_DIR = join(INSTANCES_DIR, "PENDING_DIR");
+  private static readonly SUPPORTED_PMS = {
+    "dnf": sudo("dnf install -y"),
+    "apt": sudo("apt install -y"),
+    "pacman": sudo("pacman -S --noconfirm"),
+    "zypper": sudo("zypper install -y"),
+    "xbps-install": sudo("xbps-install -Sy"),
+  };
 
   private static isNewerVersion(releaseTag: string): boolean {
     const [r0 = 0, r1 = 0, r2 = 0] = releaseTag.replace(/^v/, "").split(".").map(Number);
@@ -231,6 +238,17 @@ fi
 
   static async setup() {
     await mkdir(APP_DIR, { recursive: true });
+    if (!IS_WIN32) await App.pmInstall(
+      {
+        "xdg-open": "xdg-utils",
+        "update-desktop-database": "desktop-file-utils",
+        "lspci": "pciutils",
+        "wl-copy": "wl-clipboard",
+        "rsync": "rsync",
+        "curl": "curl"
+      }
+    );
+
     await App.createEntry();
     await App.moveBinnary();
 
@@ -522,4 +540,26 @@ fi
       await App.closeInstance(serverName, ztNetworkId);
     });
   };
+
+  static async pmInstall(pkgMap: Record<string, string>): Promise<void> {
+    const pmList = Object.keys(App.SUPPORTED_PMS).join(" ");
+    const pm = (await run(`for pm in ${pmList}; do command -v "$pm" >/dev/null 2>&1 && echo "$pm" && break; done; true`));
+    const cmd = App.SUPPORTED_PMS[pm as keyof typeof App.SUPPORTED_PMS];
+    if (!cmd) {
+      throwErr(`No supported package manager found. Please install manually:\n${Object.keys(pkgMap).join(", ")}`);
+    }
+
+    const missing: string[] = [];
+    for (const bin of Object.keys(pkgMap)) {
+      if (!(await isSuccess(async () => await run(`command -v ${bin}`)))) {
+        missing.push(pkgMap[bin] ?? "");
+      }
+    }
+
+    if (missing.length) {
+      await tryCatch(async () => {
+        await run(`${cmd} ${missing.join(" ")}`, { inherit: true });
+      }, `Failed to install:\n${missing.join(", ")}`);
+    }
+  }
 }

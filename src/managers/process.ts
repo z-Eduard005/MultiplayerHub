@@ -48,24 +48,11 @@ export default class Process {
     throwErr(`You don't have admin rights!\nPlease start the program as an admin`);
   }
 
-  private static async isNotFedora() {
-    return await tryCatch(
-      async () => {
-        const osRelease = await run("cat /etc/os-release");
-        return !osRelease.toLowerCase().includes("id=fedora");
-      }, "Error checking OS type"
-    );
-  }
-
   static async init() {
     process.stdout.write(`\x1b]0;${APP_NAME} v${APP_VERSION}\x07`);
     process.chdir(USER_DIR);
 
-    if (IS_WIN32) {
-      await Process.ensureAdmin();
-    } else if (await Process.isNotFedora()) {
-      throwErr("Apologies, this program currently only works on Windows or Fedora Linux");
-    }
+    if (IS_WIN32) await Process.ensureAdmin();
     await Process.killPrevious();
 
     process.on("uncaughtException", err => {
