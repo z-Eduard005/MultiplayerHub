@@ -17,5 +17,3 @@ export type TryCatch = <
   msgOrFn?: Warning extends true ? string : MsgOrFn,
   isWarn?: Warning
 ) => Promise<Return> | never;
-
-export type LogType = "info" | "success" | "warning" | "error";

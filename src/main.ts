@@ -1,7 +1,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import { CONFIG_FILE, INSTANCES_DIR, IS_WIN32 } from "./constants";
-import { log, tryCatch, throwErr, color, run } from "./utils";
+import { log, tryCatch, throwErr, run } from "./utils";
 import UI, { type ListItem } from "./managers/ui";
 import Zerotier from "./managers/zerotier";
 import Git from "./managers/git";
@@ -25,12 +25,12 @@ tryCatch(
 
         const ready = inst.state === "ready";
         const desc = !ready
-          ? `\n${color("Setup incomplete", "warning")}`
+          ? `\n${UI.textColor("Setup incomplete", "warning")}`
           : inst.owner !== "me"
             ? `\nOwner: ${inst.owner}`
             : `For client-side mods & configs use:\n${join(".tlauncher", "legacy", "Minecraft", "game", "home", serverName)}`
 
-        const footerText = { label: instanceError.value ? `\n${color(instanceError.value, "error")}` : "", center: false };
+        const footerText = { label: instanceError.value ? `\n${UI.textColor(instanceError.value, "error")}` : "", center: false };
 
         const deleteLabel = inst.owner === "me" ? "Delete" : "Remove";
         const isNotMine = inst.owner !== "me";
@@ -44,11 +44,11 @@ tryCatch(
               ? [ztNetworkItem]
               : [{ label: "@ Data Sync Between Players", badge: inst.playersDataSync !== false ? "ON" : "OFF", badgeColor: (inst.playersDataSync !== false ? "green" : "red") as "green" | "red" }]
             ),
-            { value: "- Delete server", label: color(`- ${deleteLabel} server`, "error") },
+            { value: "- Delete server", label: UI.textColor(`- ${deleteLabel} server`, "error") },
           ]
           : [
             "> Continue setup",
-            { value: "- Delete server", label: color(`- ${deleteLabel} server`, "error") },
+            { value: "- Delete server", label: UI.textColor(`- ${deleteLabel} server`, "error") },
           ];
 
         const opts: Parameters<typeof UI.list>[1] = {
@@ -124,7 +124,7 @@ tryCatch(
         }
         if (value === "- Delete server") {
           const { value: confirm, cancelled } = await UI.input({
-            title: `Are you sure you want to ${color("DELETE", "error")} "${serverName.replace(/^0+/, "")}"?`,
+            title: `Are you sure you want to ${UI.textColor("DELETE", "error")} "${serverName.replace(/^0+/, "")}"?`,
             desc: "Type DELETE to confirm",
             maxLen: 50,
           });
@@ -303,7 +303,7 @@ tryCatch(
             existing = (config["instances"] as Instance[]) ?? [];
 
             const { value, cancelled } = await UI.input({
-              title: `${color("[1/3]:", "info")} Server creation...`,
+              title: `${UI.textColor("[1/3]:", "info")} Server creation...`,
               filter: /[a-z_-]/,
               desc: "Type a name for your server instance",
               defaultValue: serverName,
@@ -327,7 +327,7 @@ tryCatch(
             const versionItems = await getAvailableVersions();
 
             const { value, cancelled, index } = await UI.list(versionItems, {
-              title: `${color("[2/3]:", "info")} Server creation...`,
+              title: `${UI.textColor("[2/3]:", "info")} Server creation...`,
               desc: "Choose Minecraft version (install from tlauncher)\n\nNot Supported:\n- fabric below 1.14\n- forge above 1.13.2",
               refresh: () => getAvailableVersions(),
               action: {
@@ -356,7 +356,7 @@ tryCatch(
             await Git.initServer(serverName);
 
             const { value } = await UI.input({
-              title: `${color("[3/3]:", "info")} Server creation...`,
+              title: `${UI.textColor("[3/3]:", "info")} Server creation...`,
               desc: "Path to existing world folder, or press Enter to skip",
               allowEmpty: true,
               validate: (p) => p && !existsSync(p) ? "Path does not exist" : null,

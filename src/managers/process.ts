@@ -1,5 +1,5 @@
 import { IS_WIN32, USER_DIR, APP_NAME, APP_VERSION } from "../constants";
-import { color, isSuccess, log, run, throwErr, tryCatch } from "../utils";
+import { isSuccess, log, run, throwErr, tryCatch } from "../utils";
 import { createInterface } from "readline";
 import UI from "./ui";
 import Git from "./git";
@@ -25,7 +25,7 @@ export default class Process {
 
       const rl = createInterface({ input: process.stdin, output: process.stdout });
       const answer = await new Promise<string>((resolve) => {
-        rl.question(color(`Detected another ${APP_NAME} app running\nKill it and continue here? (y/n): `, "warning"), (ans) => {
+        rl.question(UI.textColor(`Detected another ${APP_NAME} app running\nKill it and continue here? (y/n): `, "warning"), (ans) => {
           rl.close();
           resolve(ans.trim().toLowerCase());
         });
@@ -81,7 +81,7 @@ export default class Process {
           output: process.stdout,
         });
 
-        rl.question(color("Press Enter to continue...", "warning"), () => {
+        rl.question(UI.textColor("Press Enter to continue...", "warning"), () => {
           rl.close();
           resolve();
         });

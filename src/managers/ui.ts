@@ -1,4 +1,4 @@
-import { pasteFromClipboard } from "../utils";
+import { execSync } from "child_process";
 
 type LayoutOptions = {
   title?: string;
@@ -31,6 +31,8 @@ export type ListItem = {
   blocked?: boolean;
 }
 
+export type LogType = "info" | "success" | "warning" | "error";
+
 type Render = (
   draw: () => string,
   handleKey: (key: string) => void,
@@ -60,6 +62,15 @@ export default class UI {
   private static cols(): number {
     return process.stdout.columns || 80;
   }
+
+  private static async pasteFromClipboard() {
+    if (process.platform !== "win32") return "";
+    return execSync(`powershell -NoProfile -NonInteractive -Command "Get-Clipboard"`).toString();
+  };
+
+  static textColor(str: string, type: LogType) {
+    return `\x1b[3${type === "success" ? 2 : type === "warning" ? 3 : type === "error" ? 1 : 4}m\x1b[1m${str}\x1b[0m`;
+  };
 
   private static wrap(text: string, maxWidth: number): string[] {
     const lines: string[] = [];
@@ -589,7 +600,7 @@ export default class UI {
 
       keyHandler = (key) => {
         if (key === "\x16") {
-          pasteFromClipboard().then(paste => {
+          UI.pasteFromClipboard().then(paste => {
             if (!paste) return;
             const sanitized = [...paste].filter(c => {
               const code = c.charCodeAt(0);

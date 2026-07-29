@@ -3,8 +3,9 @@ import { spawn } from "child_process";
 import { setTimeout as setTimeoutPromise } from "timers/promises";
 import { join } from "path";
 import { IS_WIN32, LINUX_SHELL, INSTANCES_DIR } from "./constants";
-import type { TryCatch, Run, LogType } from "./types";
+import type { TryCatch, Run } from "./types";
 import { access, constants } from "fs/promises";
+import UI, { type LogType } from "./managers/ui";
 
 export const run: Run = async (commands, options) => {
   const result: string[] = [],
@@ -100,16 +101,12 @@ export const retryRun = async <Return>(fn: () => Return | Promise<Return>) => {
   return result as Return;
 };
 
-export const color = (str: string, type: LogType) => {
-  return `\x1b[3${type === "success" ? 2 : type === "warning" ? 3 : type === "error" ? 1 : 4}m\x1b[1m${str}\x1b[0m`;
-};
-
 export const log = (msg: string, type?: LogType) => {
-  return console.log(`\r${type ? color(msg, type) : msg}`);
+  return console.log(`\r${type ? UI.textColor(msg, type) : msg}`);
 };
 
 export const throwErr = (msg?: string): never => {
-  throw new Error(msg && color(msg.replace("Error: ", ""), "error"));
+  throw new Error(msg && UI.textColor(msg.replace("Error: ", ""), "error"));
 };
 
 export const tryCatch: TryCatch = async (fn, msgOrFn, isWarn) => {
@@ -129,9 +126,4 @@ export const tryCatch: TryCatch = async (fn, msgOrFn, isWarn) => {
 
 export const sudo = (cmd: string) => {
   return IS_WIN32 ? cmd : `sudo ${cmd}`;
-};
-
-export const pasteFromClipboard = async (): Promise<string> => {
-  if (!IS_WIN32) return "";
-  return await run(`powershell -NoProfile -NonInteractive -Command "Get-Clipboard"`);
 };

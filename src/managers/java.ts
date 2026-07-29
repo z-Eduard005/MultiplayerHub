@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
 import type { ChildProcessByStdio } from "child_process";
 import { Stream } from "stream";
-import { exists, run, log, throwErr, tryCatch, color } from "../utils";
+import { exists, run, log, throwErr, tryCatch } from "../utils";
 import { join } from "path";
 import { IS_WIN32, APP_NAME, APP_DIR, INSTANCES_DIR, LINUX_SHELL, SERVER_READY_RGX } from "../constants";
 import { mkdir, rename, rm, writeFile, readFile, readdir } from "fs/promises";
@@ -106,7 +106,7 @@ export default class Java {
     const apiUrl = `https://api.adoptium.net/v3/assets/latest/${ver}/hotspot?os=${os}&arch=x64`;
 
     const prefix = index && total ? `[${index}/${total}]: ` : "";
-    const loaderText = `${color(prefix, "info")}Installing Java ${ver}...`;
+    const loaderText = `${UI.textColor(prefix, "info")}Installing Java ${ver}...`;
 
     const loader1 = UI.loader(loaderText);
     const res = await fetch(apiUrl);
