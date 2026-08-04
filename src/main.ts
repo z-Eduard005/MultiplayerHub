@@ -1,6 +1,6 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { CONFIG_FILE, INSTANCES_DIR, IS_WIN32 } from "./constants";
+import { APP_START_ART, CONFIG_FILE, INSTANCES_DIR, IS_WIN32 } from "./constants";
 import { log, tryCatch, throwErr, run } from "./utils";
 import UI, { type ListItem } from "./managers/ui";
 import Zerotier from "./managers/zerotier";
@@ -274,7 +274,7 @@ tryCatch(
         "> Create Server",
         "+ Add New Server",
       ], {
-        title: UI.START_ART,
+        title: APP_START_ART,
         backText: "Exit",
         defaultValue: mainOptionIndex,
         action: { label: "⛭ Settings", run: settingsAction },

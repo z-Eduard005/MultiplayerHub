@@ -4,8 +4,17 @@
   "author": "z-Eduard005",
   "license": "MIT",
   "description": "MultiplayerHub - free, decentralized Minecraft server provisioning program, that uses p2p networking and automatic host election to eliminate the need for dedicated server infrastructure.",
+  "keywords": [
+    "free",
+    "minecraft",
+    "multiplayer",
+    "p2p",
+    "plug-and-play",
+    "server",
+    "tui"
+  ],
   "scripts": {
-    "ts-handle": "tsup src/main.ts --format cjs --target node18 --out-dir build --treeshake --minify",
+    "ts-handle": "tsup src/main.ts --format cjs --target node18 --out-dir build --treeshake --minify --clean",
     "pkg-handle": "pkg build/main.js -o build/MultiplayerHub.exe -t node18-win-x64 && node scripts/set-win-icon.js && pkg build/main.js -o build/MultiplayerHub -t node18-linux-x64 && chmod +x build/MultiplayerHub",
     "build": "npm run ts-handle && npm run pkg-handle",
     "release": "node scripts/bump-version.js && npm run build && node scripts/release.js",
