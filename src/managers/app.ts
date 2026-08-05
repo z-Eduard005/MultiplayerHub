@@ -454,7 +454,7 @@ fi
   }
 
   static async runInstance(serverName: string, instanceError: { value: string | null }) {
-    UI.restoreMainScreen();
+    UI.destroyAltScreen();
     log(`Starting ${serverName} server...`, "info");
     const closeFlag = { value: false };
     const serverIconFile = join(INSTANCES_DIR, serverName, "server", basename(App.SERVER_ICON_FILE));

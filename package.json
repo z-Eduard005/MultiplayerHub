@@ -3,6 +3,9 @@
   "version": "1.4.0",
   "author": "z-Eduard005",
   "license": "MIT",
+  "repository": {
+    "url": "https://github.com/z-Eduard005/MultiplayerHub"
+  },
   "description": "MultiplayerHub - free, decentralized Minecraft server provisioning program, that uses p2p networking and automatic host election to eliminate the need for dedicated server infrastructure.",
   "keywords": [
     "free",
@@ -30,5 +33,8 @@
     "tsup": "^8.4.0",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.41.0"
+  },
+  "dependencies": {
+    "@z-eduard005/tui-lib": "^0.0.1"
   }
 }

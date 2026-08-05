@@ -1,4 +1,4 @@
-import { IS_WIN32, USER_DIR, APP_NAME, APP_VERSION } from "../constants";
+import { IS_WIN32, USER_DIR, APP_NAME } from "../constants";
 import { isSuccess, log, run, throwErr, tryCatch } from "../utils";
 import { createInterface } from "readline";
 import UI from "./ui";
@@ -49,19 +49,18 @@ export default class Process {
   }
 
   static async init() {
-    process.stdout.write(`\x1b]0;${APP_NAME} v${APP_VERSION}\x07`);
     process.chdir(USER_DIR);
 
     if (IS_WIN32) await Process.ensureAdmin();
     await Process.killPrevious();
 
     process.on("uncaughtException", err => {
-      UI.restoreMainScreen();
+      UI.destroyAltScreen();
       log("Uncaught Exception: " + err, "error");
       Process.stop();
     });
     process.on("unhandledRejection", reason => {
-      UI.restoreMainScreen();
+      UI.destroyAltScreen();
       log("Unhandled Rejection: " + reason, "error");
       Process.stop();
     });
@@ -92,7 +91,7 @@ export default class Process {
   static async stop() {
     if (Process.closing) return;
     Process.closing = true;
-    UI.restoreMainScreen();
+    UI.destroyAltScreen();
     UI.stopBadge();
 
     await Java.kill();

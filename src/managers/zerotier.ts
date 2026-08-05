@@ -177,7 +177,7 @@ export default class Zerotier {
       backText: "Exit",
       filter: /[a-z0-9]/
     });
-    UI.restoreMainScreen();
+    UI.destroyAltScreen();
 
     if (cancelled) throwErr("ZeroTier authorization is required");
     return value;

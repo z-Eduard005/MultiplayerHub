@@ -181,7 +181,7 @@ tryCatch(
         await Java.installServer(serverName, version);
         await App.updateInstance(serverName, { state: "installed" });
       }
-      UI.restoreMainScreen();
+      UI.destroyAltScreen();
       log("Server creation...", "info");
       await Git.initServer(serverName);
       await Git.initWorld(serverName, "");
@@ -351,7 +351,7 @@ tryCatch(
             step = 3;
           }
           if (step === 3) {
-            UI.restoreMainScreen();
+            UI.destroyAltScreen();
             log("Server creation...", "info");
             await Git.initServer(serverName);
 
@@ -407,7 +407,7 @@ tryCatch(
     }
   },
   async (err) => {
-    UI.restoreMainScreen();
+    UI.destroyAltScreen();
     log(err, "error");
     await Process.stop();
   }
