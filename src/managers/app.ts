@@ -101,16 +101,23 @@ export default class App {
   private static async detectDriPrime(): Promise<string> {
     try {
       const result = await run(
-        `onboard=$(lspci -nnk 2>/dev/null | grep -B1 "Onboard" | grep "1002" | awk '{print $1}')
-amd_gpus=$(lspci -nnd ::03xx 2>/dev/null | grep "1002")
-if [ -n "$onboard" ]; then
-  bus_id=$(echo "$amd_gpus" | grep -v "$onboard" | head -1 | awk '{print $1}')
-else
-  bus_id=$(echo "$amd_gpus" | head -1 | awk '{print $1}')
-fi
-[ -n "$bus_id" ] && echo "pci-0000_$(echo "$bus_id" | tr ':.' '_')"`
+        `detect_dri_prime() {
+  local onboard=$(lspci -nnk 2>/dev/null | grep -B1 "Onboard" | grep "1002" | awk '{print $1}')
+  local amd_gpus=$(lspci -nnd ::03xx 2>/dev/null | grep "1002")
+  local bus_id
+
+  if [ -n "$onboard" ]; then
+    bus_id=$(echo "$amd_gpus" | grep -v "$onboard" | head -1 | awk '{print $1}')
+  else
+    bus_id=$(echo "$amd_gpus" | head -1 | awk '{print $1}')
+  fi
+
+  [ -n "$bus_id" ] && echo "pci-0000_$(echo "$bus_id" | tr ':.' '_')" || echo "1"
+}
+
+echo "$(detect_dri_prime)"`
       );
-      return result || "1";
+      return result;
     } catch {
       return "1";
     }

@@ -75,12 +75,9 @@ export default class Process {
   static async pause() {
     await new Promise<void>(async (resolve) => {
       await tryCatch(() => {
-        const rl = createInterface({
-          input: process.stdin,
-          output: process.stdout,
-        });
-
-        rl.question(UI.textColor("Press Enter to continue...", "warning"), () => {
+        process.stdout.write(UI.textColor("Press Enter to continue...", "warning"));
+        const rl = createInterface({ input: process.stdin, terminal: true });
+        rl.question("", () => {
           rl.close();
           resolve();
         });

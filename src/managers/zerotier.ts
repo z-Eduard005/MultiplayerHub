@@ -173,7 +173,7 @@ export default class Zerotier {
 
     const { value, cancelled } = await UI.input({
       title: "ZeroTier Network Creation",
-      desc: `Opening: ${Zerotier.NEW_ORG_URL} ...\n\n1) Create organization with any name\n2) Choose "$0" plan\n3) Copy and Paste (Ctrl+Shift+V) Network ID below:`,
+      desc: `Opening: ${Zerotier.NEW_ORG_URL} ...\n\n1) Create organization with any name\n2) Choose "$0" plan\n3) Copy and Paste (${IS_WIN32 ? "Ctrl+V" : "Ctrl+Shift+V"}) Network ID below:`,
       backText: "Exit",
       filter: /[a-z0-9]/
     });

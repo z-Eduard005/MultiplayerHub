@@ -4,6 +4,7 @@ import { join, extname } from "path";
 import { IS_WIN32, MC_DIR, VERSIONS_DIR } from "../constants";
 import UI from "./ui";
 import { spawn } from "child_process";
+import Process from "./process";
 
 export default class Tlauncher {
   private static readonly PROPS_FILE = join(MC_DIR, "tl.properties");
@@ -127,14 +128,14 @@ export default class Tlauncher {
     await tryCatch(
       async () => {
         return await run(
-          IS_WIN32 ? `start "" ${Tlauncher.INSTALLER_URL}` : `sh -c "$(curl -fsSL ${Tlauncher.LINUX_MC_INSTALLER_URL})"`,
+          IS_WIN32 ? `start ${Tlauncher.INSTALLER_URL}` : `sh -c "$(curl -fsSL ${Tlauncher.LINUX_MC_INSTALLER_URL})"`,
           { inherit: true }
         );
       }, "Error while installing tlauncher (check your internet)"
     )
     if (!IS_WIN32) log("\nPlease restart, after tlauncher installed", "success");
 
-    throwErr();
+    await Process.stop();
   }
 
   static async installedVersions(excludeNames: string[] = []): Promise<string[]> {
