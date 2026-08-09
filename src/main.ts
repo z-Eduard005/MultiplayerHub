@@ -1,6 +1,6 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { APP_START_ART, CONFIG_FILE, INSTANCES_DIR, IS_WIN32 } from "./constants";
+import { APP_START_ART, CONFIG_FILE, GAME_DIR, INSTANCES_DIR, IS_WIN32 } from "./constants";
 import { log, tryCatch, throwErr, run } from "./utils";
 import UI, { type ListItem } from "./managers/ui";
 import Zerotier from "./managers/zerotier";
@@ -59,8 +59,13 @@ tryCatch(
             ? { lockable: true, action: { label: "□ Unlock", run: () => { } } }
             : {
               action: {
-                label: "□ Open Server Folder", run: () => {
+                label: "□ Server Folder", run: () => {
                   run(`${IS_WIN32 ? 'explorer.exe' : "xdg-open"} "${join(INSTANCES_DIR, serverName, "server")}"`);
+                }
+              },
+              action2: {
+                label: "□ Client Folder", run: () => {
+                  run(`${IS_WIN32 ? 'explorer.exe' : "xdg-open"} "${join(GAME_DIR, "home", serverName)}"`);
                 }
               }
             }
