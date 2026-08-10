@@ -8,7 +8,7 @@ import Git from "./managers/git";
 import Java from "./managers/java";
 import Tlauncher from "./managers/tlauncher";
 import Process from "./managers/process";
-import App, { type Instance, type Invite } from "./managers/app";
+import App, { type Instance } from "./managers/app";
 
 tryCatch(
   async () => {
@@ -392,9 +392,12 @@ tryCatch(
           maxLen: 2048,
           validate: (v: string) => {
             try {
-              const data = App.decode(v) as Invite;
-              if (instances.some(i => i.id === data?.id)) return "Server already added";
-            } catch { }
+              const data = App.decode(v);
+              if (!App.isValidInvite(data)) return "Invalid invite string: missing required fields";
+              if (instances.some(i => i.id === data.id)) return "This server is already in your list";
+            } catch {
+              return "Invalid invite string: wrong format";
+            }
             return null;
           },
         });

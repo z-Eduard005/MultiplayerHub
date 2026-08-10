@@ -372,10 +372,8 @@ echo "$(detect_dri_prime)"`
   static async decodeInviteString(invite: string): Promise<string> {
     return await tryCatch(async () => {
       const data = App.decode(invite) as Invite;
+      if (!App.isValidInvite(data)) throwErr("Invalid invite string: missing required fields");
       const { id, networkId, nickName, serverName, privateKey, repoUrl, mcVersion, playersDataSync } = data;
-      if (!id || !networkId || !nickName || !serverName || !privateKey || !repoUrl || !mcVersion || typeof playersDataSync !== "boolean") {
-        throwErr("Invalid invite string: missing required fields");
-      }
 
       const config = await App.getConfig(CONFIG_FILE);
       const instances = (config["instances"] as Instance[]) ?? [];
@@ -442,6 +440,11 @@ echo "$(detect_dri_prime)"`
 
   static decode(str: string): Record<string, unknown> {
     return JSON.parse(inflateSync(Buffer.from(str, "base64url")).toString());
+  }
+
+  static isValidInvite(data: unknown): data is Invite {
+    const invite = data as Invite;
+    return !!invite?.id && !!invite?.networkId && !!invite?.nickName && !!invite?.serverName && !!invite?.privateKey && !!invite?.repoUrl && !!invite?.mcVersion && typeof invite?.playersDataSync === "boolean";
   }
 
   static async closeInstance(name: string, networkId: string) {
