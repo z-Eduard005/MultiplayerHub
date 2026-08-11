@@ -258,6 +258,7 @@ echo "$(detect_dri_prime)"`
 
     await App.createEntry();
     await App.moveBinnary();
+    await App.checkUpdates();
 
     await Tlauncher.install();
     await Tlauncher.initSettings();
@@ -279,7 +280,6 @@ echo "$(detect_dri_prime)"`
       await App.putConfig(CONFIG_FILE, { installed: true });
     }
 
-    await App.checkUpdates();
     await App.cleanInstances();
   }
 

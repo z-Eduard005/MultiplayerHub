@@ -349,7 +349,7 @@ tryCatch(
             existing = (config["instances"] as Instance[]) ?? [];
 
             const { value, cancelled } = await UI.input({
-              title: `${UI.textColor("[1/3]:", "info")} Server creation...`,
+              title: `${UI.textColor("[1/3]:", "accent")} Server creation...`,
               filter: /[a-z_-]/,
               desc: "Type a name for your server instance",
               defaultValue: serverName,
@@ -373,7 +373,7 @@ tryCatch(
             const versionItems = await getAvailableVersions();
 
             const { value, cancelled, index } = await UI.list(versionItems, {
-              title: `${UI.textColor("[2/3]:", "info")} Server creation...`,
+              title: `${UI.textColor("[2/3]:", "accent")} Server creation...`,
               desc: "Choose Minecraft version (install from tlauncher)\n\nNot Supported:\n- fabric below 1.14\n- forge above 1.13.2",
               refresh: () => getAvailableVersions(),
               action: {
@@ -402,7 +402,7 @@ tryCatch(
             await Git.initServer(serverName);
 
             const { value } = await UI.input({
-              title: `${UI.textColor("[3/3]:", "info")} Server creation...`,
+              title: `${UI.textColor("[3/3]:", "accent")} Server creation...`,
               desc: "Path to existing world folder, or press Enter to skip",
               allowEmpty: true,
               validate: (p) => p && !existsSync(p) ? "Path does not exist" : null,

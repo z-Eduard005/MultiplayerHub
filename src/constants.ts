@@ -48,7 +48,7 @@ export const APP_VERSION = "1.4.1";
 export const APP_NAME = "MultiplayerHub";
 export const APP_DIR = IS_WIN32
   ? join(USER_DIR, "AppData", "Roaming", "MultiplayerHub")
-  : join(USER_DIR, ".config", "MultiplayerHub");
+  : join(USER_DIR, ".MultiplayerHub");
 export const INSTANCES_DIR = join(APP_DIR, "instances");
 export const CONFIG_FILE = join(APP_DIR, ".config");
 export const VERSIONS_DIR = join(GAME_DIR, "versions");
