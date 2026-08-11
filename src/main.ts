@@ -44,6 +44,10 @@ tryCatch(
               ? [ztNetworkItem]
               : [{ label: "@ Data Sync Between Players", badge: inst.playersDataSync !== false ? "ON" : "OFF", badgeColor: (inst.playersDataSync !== false ? "green" : "red") as "green" | "red" }]
             ),
+            ...(inst.owner === "me"
+              ? [{ value: "% Recreate world", label: UI.textColor("% Recreate world", "error") }]
+              : []
+            ),
             { value: "- Delete server", label: UI.textColor(`- ${deleteLabel} server`, "error") },
           ]
           : [
@@ -139,6 +143,43 @@ tryCatch(
             instanceError.value = null;
             break;
           }
+        }
+        if (value === "% Recreate world") {
+          const recreateCheck = { blocked: false, msg: "" };
+          await tryCatch(async () => {
+            const age = await Git.getLastWorldCommitAge(serverName);
+            if (age !== null && age < 25) {
+              recreateCheck.blocked = true;
+              recreateCheck.msg = "Someone is playing right now! Wait for them to leave before recreating the world";
+            }
+          }, async (err) => {
+            recreateCheck.blocked = true;
+            recreateCheck.msg = `Could not check if someone is playing:\n${err}`;
+          });
+          if (recreateCheck.blocked) {
+            instanceError.value = recreateCheck.msg;
+            continue;
+          }
+
+          const { value: confirm, cancelled } = await UI.input({
+            title: `Are you sure you want to ${UI.textColor("RECREATE", "error")} world "${serverName.replace(/^0+/, "")}"?`,
+            desc: "Type DELETE to confirm",
+            maxLen: 50,
+          });
+          if (cancelled) continue;
+          if (confirm !== "DELETE") continue;
+
+          const { value: worldPath, cancelled: pathCancelled } = await UI.input({
+            title: "New World",
+            desc: "Path to existing world folder, or press Enter to skip",
+            allowEmpty: true,
+            validate: (p) => p && !existsSync(p) ? "Path does not exist" : null,
+          });
+          if (pathCancelled) continue;
+
+          await Git.recreateWorld(serverName, worldPath);
+          instanceError.value = null;
+          continue;
         }
         if (cancelled) { instanceError.value = null; break; }
       }

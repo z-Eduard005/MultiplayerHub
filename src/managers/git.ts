@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rm, writeFile } from "fs/promises";
+import { cp, mkdir, readFile, readdir, rm, writeFile } from "fs/promises";
 import { exists, run, retryRun, log, tryCatch, throwErr } from "../utils";
 import { IS_WIN32, USER_NAME, INSTANCES_DIR } from "../constants";
 import { join } from "path";
@@ -21,6 +21,16 @@ export default class Git {
       ? `robocopy "${src}" "${dst}" /MIR /XD .git ${excludeArgs} /R:3 /W:2 & if errorlevel 16 exit 1 & exit 0`
       : `rsync -a --delete --exclude=.git ${excludeArgs} "${src}/" "${dst}/" || [ $? -eq 24 ]`;
     await retryRun(() => run(cmd, { inherit: true }));
+  }
+
+  private static async copyWorldFolder(worldPath: string, worldDir: string) {
+    const levelDatPath = join(worldPath, "level.dat");
+    const regionDirPath = join(worldPath, "region");
+    if (await exists(levelDatPath) && await exists(regionDirPath)) {
+      await cp(worldPath, worldDir, { recursive: true, force: true });
+    } else {
+      log("Invalid world folder. Skipping...", "warning");
+    }
   }
 
   static async initServer(serverName: string) {
@@ -70,19 +80,7 @@ export default class Git {
       await mkdir(gitWorldDir, { recursive: true });
 
       if (worldPath) {
-        let invalidPath = true;
-
-        const levelDatPath = join(worldPath, "level.dat");
-        const regionDirPath = join(worldPath, "region");
-        if (await exists(levelDatPath) && await exists(regionDirPath)) {
-          invalidPath = false;
-        }
-
-        if (invalidPath) {
-          log("Invalid world folder. Skipping...", "warning");
-        } else {
-          await cp(worldPath, worldDir, { recursive: true, force: true });
-        }
+        await Git.copyWorldFolder(worldPath, worldDir);
       }
 
       await Git.syncCmd(worldDir, gitWorldDir);
@@ -101,6 +99,57 @@ export default class Git {
     }, "Error during world directory initialization");
   }
 
+  static async getLastWorldCommitAge(serverName: string): Promise<number | null> {
+    const gitWorldDir = join(INSTANCES_DIR, serverName, "server", "world-git");
+    if (!(await exists(join(gitWorldDir, ".git")))) return null;
+
+    await run(
+      "git -c credential.helper= fetch --depth 1 origin world",
+      { inherit: true, cwd: gitWorldDir, gitSshKeyName: serverName }
+    );
+
+    const commitEpoch = await run("git log -1 --format=%ct FETCH_HEAD", { cwd: gitWorldDir });
+    if (!commitEpoch) return null;
+
+    const commitSubject = await run("git log -1 --format=%s FETCH_HEAD", { cwd: gitWorldDir });
+    if (commitSubject === "init" || commitSubject === "world reset") return null;
+
+    const epoch = Number(commitEpoch);
+    if (isNaN(epoch)) return null;
+
+    return (Date.now() - epoch * 1000) / 60000;
+  }
+
+  static async recreateWorld(serverName: string, worldPath?: string) {
+    const worldDir = join(INSTANCES_DIR, serverName, "server", "world");
+    const gitWorldDir = `${worldDir}-git`;
+
+    await tryCatch(async () => {
+      const inst = await App.getInstance(serverName);
+      const repoUrl = inst?.repoUrl;
+      if (!repoUrl) throwErr("No server url found. Please create a server first");
+      if (!(await exists(join(gitWorldDir, ".git")))) throwErr("World git repository not found");
+
+      await rm(worldDir, { recursive: true, force: true });
+      await mkdir(worldDir, { recursive: true });
+
+      if (worldPath) {
+        await Git.copyWorldFolder(worldPath, worldDir);
+      }
+
+      const entries = await readdir(gitWorldDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name === ".git" || entry.name === ".gitignore") continue;
+        await rm(join(gitWorldDir, entry.name), { recursive: true, force: true });
+      }
+
+      await Git.syncCmd(worldDir, gitWorldDir);
+      await Git.push("world", serverName, "world reset");
+
+      log("The world has been recreated", "success");
+    }, "Error during world reset");
+  }
+
   static worldEnableRepeatedPush(serverName: string) {
     Git.nodeWorldPushInterval = setInterval(async () => {
       await Git.push("world", serverName);
@@ -111,7 +160,7 @@ export default class Git {
     clearInterval(Git.nodeWorldPushInterval)
   }
 
-  static async push(branch: "server" | "world", serverName: string) {
+  static async push(branch: "server" | "world", serverName: string, message?: string) {
     const serverDir = join(INSTANCES_DIR, serverName, "server");
     const worldDir = join(serverDir, "world");
     const gitWorldDir = `${worldDir}-git`;
@@ -127,7 +176,7 @@ export default class Git {
         await run(
           [
             "git add -A",
-            `git commit --allow-empty -m "${USER_NAME}_${new Date().toISOString().slice(2, 10)}"`,
+            `git commit --allow-empty -m "${message ?? `${USER_NAME}_${new Date().toISOString().slice(2, 10)}`}"`,
           ],
           { inherit: true, cwd, gitSshKeyName: serverName }
         );
