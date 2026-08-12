@@ -467,7 +467,8 @@ echo "$(detect_dri_prime)"`
     UI.destroyAltScreen();
     log(`Starting ${serverName} server...`, "info");
     const closeFlag = { value: false };
-    const serverIconFile = join(INSTANCES_DIR, serverName, "server", basename(App.SERVER_ICON_FILE));
+    const serverDir = join(INSTANCES_DIR, serverName, "server");
+    const serverIconFile = join(serverDir, basename(App.SERVER_ICON_FILE));
 
     const config = await App.getConfig(CONFIG_FILE);
     const instances = (config["instances"] as Instance[]) ?? [];
@@ -479,7 +480,10 @@ echo "$(detect_dri_prime)"`
       const ram = instance.ram ?? Java.getDefaultRam();
       if (ram < Java.MIN_RAM_MB) throwErr("You don't have enough memory to play on the server :(");
 
-      if (!(await exists(serverIconFile))) await copyFile(App.SERVER_ICON_FILE, serverIconFile);
+      if (instance.owner === "me" && !(await exists(serverIconFile)) && await exists(App.SERVER_ICON_FILE)) {
+        await mkdir(serverDir, { recursive: true });
+        await copyFile(App.SERVER_ICON_FILE, serverIconFile);
+      }
 
       await Zerotier.start();
       await Zerotier.join(ztNetworkId, instance.owner === "me");
