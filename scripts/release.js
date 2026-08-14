@@ -4,8 +4,9 @@ const fs = require("fs");
 execSync("git fetch --prune --prune-tags origin", { stdio: "inherit" });
 
 const version = JSON.parse(fs.readFileSync("package.json", "utf8")).version;
+fs.writeFileSync("build/version.js", `window.MPH_VERSION="v${version}";\n`);
 execSync(
-  `gh release create v${version} build/MultiplayerHub.exe build/MultiplayerHub --title "v${version}" --notes ""`,
+  `gh release create v${version} build/MultiplayerHub.exe build/MultiplayerHub build/version.js --title "v${version}" --notes ""`,
   { stdio: "inherit" },
 );
 

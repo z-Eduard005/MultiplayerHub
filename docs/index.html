@@ -37,7 +37,7 @@
 </head>
 
 <body>
-  <h1>MultiplayerHub</h1>
+  <h1 id="app-version">MultiplayerHub</h1>
   <div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
     <a href="https://github.com/z-Eduard005/MultiplayerHub/releases/latest/download/MultiplayerHub.exe" download
       class="button">
@@ -48,6 +48,10 @@
       <span>Linux</span> <span>&#x2193;</span>
     </a>
   </div>
+  <script src="https://github.com/z-Eduard005/MultiplayerHub/releases/latest/download/version.js"></script>
+  <script>
+    document.getElementById("app-version").textContent += " " + (window.MPH_VERSION || "");
+  </script>
 </body>
 
 </html>

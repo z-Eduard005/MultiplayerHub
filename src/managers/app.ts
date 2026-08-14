@@ -457,14 +457,39 @@ echo "$(detect_dri_prime)"`
   }
 
   private static packInvite(data: Invite): Record<string, unknown> {
+    const mcVersion = data.mcVersion.startsWith("Fabric ") ? "1" + data.mcVersion.slice(7)
+      : data.mcVersion.startsWith("Forge ") ? "0" + data.mcVersion.slice(6)
+      : data.mcVersion;
+    const repoUrl = data.repoUrl.startsWith("git@github.com:") && data.repoUrl.endsWith(".git")
+      ? data.repoUrl.slice("git@github.com:".length, -".git".length)
+      : data.repoUrl;
+    const values = [data.id, data.networkId, data.nickName, data.serverName, data.privateKey, repoUrl, mcVersion, data.playersDataSync ? 1 : 0];
     const packed: Record<string, unknown> = {};
-    for (const [i, key] of App.INVITE_FIELDS.entries()) packed[String(i)] = data[key];
+    for (const [i] of App.INVITE_FIELDS.entries()) packed[String(i)] = values[i];
     return packed;
   }
 
   static unpackInvite(data: Record<string, unknown>): Invite {
     const unpacked: Record<string, unknown> = {};
-    for (const [i, key] of App.INVITE_FIELDS.entries()) unpacked[key] = data[String(i)];
+    for (const [i, key] of App.INVITE_FIELDS.entries()) {
+      const v = data[String(i)];
+      if (key === "mcVersion") {
+        if (typeof v !== "string") throwErr("Invalid invite string: wrong format");
+        const str = v as string;
+        if (!/^[01]\d+\.\d+(?:\.\d+)?$/.test(str)) throwErr("Invalid invite string: wrong format");
+        unpacked[key] = str.startsWith("1") ? "Fabric " + str.slice(1) : "Forge " + str.slice(1);
+      } else if (key === "repoUrl") {
+        if (typeof v !== "string") throwErr("Invalid invite string: wrong format");
+        const str = v as string;
+        if (str.includes(":") || !str.includes("/")) throwErr("Invalid invite string: wrong format");
+        unpacked[key] = `git@github.com:${str}.git`;
+      } else if (key === "playersDataSync") {
+        if (v !== 0 && v !== 1) throwErr("Invalid invite string: wrong format");
+        unpacked[key] = v === 1;
+      } else {
+        unpacked[key] = v;
+      }
+    }
     return unpacked as Invite;
   }
 
