@@ -35,6 +35,6 @@
     "typescript-eslint": "^8.41.0"
   },
   "dependencies": {
-    "@z-eduard005/tui-lib": "^0.1.0"
+    "@z-eduard005/tui-lib": "^0.1.1"
   }
 }

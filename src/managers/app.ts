@@ -446,11 +446,12 @@ echo "$(detect_dri_prime)"`
 
   static encodeInvite(data: Invite): string {
     const keyBody = data.privateKey.match(/-----[A-Z ]+-----\n([\s\S]+?)\n-----END/)?.[1]?.replace(/\s+/g, "");
-    return App.INVITE_VERSION + App.encode(App.packInvite({ ...data, privateKey: keyBody ?? data.privateKey }));
+    return App.INVITE_VERSION + App.encode(App.packInvite({ ...data, privateKey: keyBody ?? data.privateKey })).replace(/-/g, "И");
   }
 
   static parseInvite(invite: string): Invite {
     if (invite.startsWith(App.INVITE_VERSION)) invite = invite.slice(App.INVITE_VERSION.length);
+    invite = invite.replace(/И/g, "-");
     const data = App.unpackInvite(App.decode(invite));
     data.privateKey = `-----BEGIN OPENSSH PRIVATE KEY-----\n${data.privateKey}\n-----END OPENSSH PRIVATE KEY-----\n`;
     return data;
