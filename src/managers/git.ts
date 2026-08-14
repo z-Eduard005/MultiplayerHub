@@ -260,22 +260,7 @@ export default class Git {
     if (!repoUrl) throwErr(`No repo URL found for ${serverName} server`);
 
     if (inst.owner !== "me" || !(await exists(serverDir))) {
-      const spinner = UI.spinner();
-      await tryCatch(async () => {
-        await Git.ensureRepo(serverDir, "server", repoUrl!, serverName);
-
-        log("Server synchronization...", "info");
-        await run(
-          ["git -c credential.helper= fetch --depth 1 origin server", "git reset --hard origin/server"],
-          { inherit: true, cwd: serverDir, gitSshKeyName: serverName }
-        );
-
-        await App.syncClientData("load", serverName);
-      }, (err) => {
-        spinner.stop();
-        throwErr(`Failed server synchronization\n${err}`);
-      });
-      spinner.stop();
+      await Git.syncServerData(serverName);
     }
 
     if (inst.owner === "me") {
@@ -288,5 +273,31 @@ export default class Git {
       await Git.ensureRepo(gitWorldDir, "world", repoUrl!, serverName);
       await Git.syncWorld(serverName);
     }, `Failed world synchronization`)
+  }
+
+  static async syncServerData(serverName: string) {
+    const inst = await App.getInstance(serverName);
+    if (!inst) return;
+
+    const serverDir = join(INSTANCES_DIR, serverName, "server");
+    const repoUrl = inst.repoUrl;
+    if (!repoUrl) throwErr(`No repo URL found for ${serverName} server`);
+
+    const spinner = UI.spinner();
+    await tryCatch(async () => {
+      await Git.ensureRepo(serverDir, "server", repoUrl!, serverName);
+
+      log("Server synchronization...", "info");
+      await run(
+        ["git -c credential.helper= fetch --depth 1 origin server", "git reset --hard origin/server"],
+        { inherit: true, cwd: serverDir, gitSshKeyName: serverName }
+      );
+
+      await App.syncClientData("load", serverName);
+    }, (err) => {
+      spinner.stop();
+      throwErr(`Failed server synchronization\n${err}`);
+    });
+    spinner.stop();
   }
 }

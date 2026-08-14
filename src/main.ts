@@ -34,25 +34,25 @@ tryCatch(
 
         const deleteLabel = inst.owner === "me" ? "Delete" : "Remove";
         const isNotMine = inst.owner !== "me";
-        const ztNetworkItem: ListItem = { label: "# Zerotier Network ID", blocked: true };
-        const items: (string | ListItem)[] = ready
+        const ztNetworkItem: ListItem = { value: "zerotier-network-id", label: "# Zerotier Network ID", blocked: true };
+        const items: ListItem[] = ready
           ? [
-            "/ Play on Server",
-            "_ Copy Invite string",
-            "* Change Memory allocation",
+            { value: "play-on-server", label: "/ Play on Server" },
+            { value: "copy-invite-string", label: "_ Copy Invite string" },
+            { value: "change-memory-allocation", label: "* Change Memory allocation" },
             ...(isNotMine
               ? [ztNetworkItem]
-              : [{ label: "@ Data Sync Between Players", badge: inst.playersDataSync !== false ? "ON" : "OFF", badgeColor: (inst.playersDataSync !== false ? "green" : "red") as "green" | "red" }]
+              : [{ value: "data-sync-between-players", label: "@ Data Sync Between Players", badge: inst.playersDataSync !== false ? "ON" : "OFF", badgeColor: (inst.playersDataSync !== false ? "green" : "red") as "green" | "red" }]
             ),
             ...(inst.owner === "me"
-              ? [{ value: "% Recreate world", label: UI.textColor("% Recreate world", "error") }]
+              ? [{ value: "recreate-world", label: UI.textColor("% Recreate world", "error") }]
               : []
             ),
-            { value: "- Delete server", label: UI.textColor(`- ${deleteLabel} server`, "error") },
+            { value: "delete-server", label: UI.textColor(`- ${deleteLabel} server`, "error") },
           ]
           : [
-            "> Continue setup",
-            { value: "- Delete server", label: UI.textColor(`- ${deleteLabel} server`, "error") },
+            { value: "continue-setup", label: "> Continue setup" },
+            { value: "delete-server", label: UI.textColor(`- ${deleteLabel} server`, "error") },
           ];
 
         const opts: Parameters<typeof UI.list>[1] = {
@@ -78,16 +78,16 @@ tryCatch(
 
         const { value, cancelled } = await UI.list(items, opts);
 
-        if (value === "> Continue setup" && inst.state !== "ready") {
+        if (value === "continue-setup" && inst.state !== "ready") {
           await finishInstanceSetup(serverName, inst.state, inst.version);
           instanceError.value = null;
           break;
         }
-        if (value === "_ Copy Invite string") {
+        if (value === "copy-invite-string") {
           const invite = await App.generateInviteString(serverName);
           await App.copyToClipboard(invite);
         }
-        if (value === "* Change Memory allocation") {
+        if (value === "change-memory-allocation") {
           const { value: newRam, cancelled } = await UI.input({
             title: "Memory allocation",
             desc: `Enter amount of RAM in MB\nMinimum: ${Java.MIN_RAM_MB}MB | Maximum: ${Java.MAX_RAM_MB}MB`,
@@ -104,7 +104,7 @@ tryCatch(
           if (!value) continue;
           await App.updateInstance(serverName, { ram: Number(value) });
         }
-        if (value === "/ Play on Server") {
+        if (value === "play-on-server") {
           const valid = await Tlauncher.isValidAccount();
           if (!valid) {
             instanceError.value = 'You should choose microsoft or ely.by account in tlauncher and press "Play" once!';
@@ -112,12 +112,12 @@ tryCatch(
           }
           await App.runInstance(serverName, instanceError);
         }
-        if (value === "@ Data Sync Between Players") {
+        if (value === "data-sync-between-players") {
           const current = inst.playersDataSync;
           await App.updateInstance(serverName, { playersDataSync: current === false ? true : false });
           continue;
         }
-        if (value === "# Zerotier Network ID") {
+        if (value === "zerotier-network-id") {
           const { value: newId, cancelled } = await UI.input({
             title: "# Zerotier Network ID",
             desc: `${inst.owner}'s Network ID`,
@@ -131,7 +131,7 @@ tryCatch(
             await App.updateInstance(serverName, patch);
           }
         }
-        if (value === "- Delete server") {
+        if (value === "delete-server") {
           const { value: confirm, cancelled } = await UI.input({
             title: `Are you sure you want to ${UI.textColor("DELETE", "error")} "${serverName.replace(/^0+/, "")}"?`,
             desc: "Type DELETE to confirm",
@@ -144,7 +144,7 @@ tryCatch(
             break;
           }
         }
-        if (value === "% Recreate world") {
+        if (value === "recreate-world") {
           const recreateCheck = { blocked: false, msg: "" };
           await tryCatch(async () => {
             const age = await Git.getLastWorldCommitAge(serverName);
@@ -194,7 +194,7 @@ tryCatch(
       let lastTlauncherLaunch = 0;
 
       while (true) {
-        const { value, cancelled } = await UI.list(["> Open TLauncher"], {
+        const { value, cancelled } = await UI.list([{ value: "open-tlauncher", label: "> Open TLauncher" }], {
           title: "Waiting for version...",
           desc: `You need to install version "${neededVersion}" from TLauncher manually in order to play on this server`,
           resolveOn: async () => {
@@ -243,7 +243,7 @@ tryCatch(
 
         const { value, cancelled } = await UI.list(
           instances.map(i => {
-            const item: ListItem = { label: `| ${i.name.replace(/^0+/, "")} (${i.version})`, value: i.name };
+            const item: ListItem = { value: i.name, label: `| ${i.name.replace(/^0+/, "")} (${i.version})` };
             if (i.state !== "ready") {
               item.badge = "Not Ready";
             } else if (i.owner === "me") {
@@ -281,7 +281,7 @@ tryCatch(
       while (true) {
         const { value, cancelled } = await UI.list(
           [
-            { label: "# Zerotier Network ID", blocked: true },
+            { value: "zerotier-network-id", label: "# Zerotier Network ID", blocked: true },
           ],
           {
             title: "Settings",
@@ -292,7 +292,7 @@ tryCatch(
         );
         if (cancelled) return;
 
-        if (value === "# Zerotier Network ID") {
+        if (value === "zerotier-network-id") {
           const config = await App.getConfig(CONFIG_FILE);
           const { value: newId, cancelled: inputCancelled } = await UI.input({
             title: "# Zerotier Network ID",
@@ -316,9 +316,9 @@ tryCatch(
 
     while (true) {
       const { value, cancelled, index } = await UI.list([
-        "= Choose Server",
-        "> Create Server",
-        "+ Add New Server",
+        { value: "choose-server", label: "= Choose Server" },
+        { value: "create-server", label: "> Create Server" },
+        { value: "add-new-server", label: "+ Add New Server" },
       ], {
         title: APP_START_ART,
         backText: "Exit",
@@ -330,12 +330,12 @@ tryCatch(
 
       if (cancelled) await Process.stop();
 
-      if (value === "= Choose Server") {
+      if (value === "choose-server") {
         await chooseServerFlow();
         continue;
       }
 
-      if (value === "> Create Server") {
+      if (value === "create-server") {
         let lastTlauncherLaunch = 0;
         let serverName = "";
         let serverVersion = "";
@@ -423,7 +423,7 @@ tryCatch(
 
         if (step < 4) continue;
       }
-      if (value === "+ Add New Server") {
+      if (value === "add-new-server") {
         const config = await App.getConfig(CONFIG_FILE);
         const instances = (config["instances"] as Instance[]) ?? [];
 

@@ -480,6 +480,8 @@ echo "$(detect_dri_prime)"`
       const ram = instance.ram ?? Java.getDefaultRam();
       if (ram < Java.MIN_RAM_MB) throwErr("You don't have enough memory to play on the server :(");
 
+      if (instance.owner !== "me") await Git.syncServerData(serverName);
+
       if (instance.owner === "me" && !(await exists(serverIconFile)) && await exists(App.SERVER_ICON_FILE)) {
         await mkdir(serverDir, { recursive: true });
         await copyFile(App.SERVER_ICON_FILE, serverIconFile);
