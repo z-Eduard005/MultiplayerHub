@@ -68,7 +68,6 @@ export default class App {
   private static readonly DESKTOP_ENTRY_FILE = join(App.DESKTOP_ENTRY_PATH, APP_NAME + ".desktop");
   private static readonly PENDING_DIR = join(INSTANCES_DIR, "PENDING_DIR");
   private static readonly INVITE_VERSION = "V1";
-  private static readonly INVITE_FIELDS = ["id", "networkId", "nickName", "serverName", "privateKey", "repoUrl", "mcVersion", "playersDataSync"] as const;
   private static readonly SUPPORTED_PMS = {
     "dnf": sudo("dnf install -y"),
     "apt": sudo("apt install -y"),
@@ -446,52 +445,99 @@ echo "$(detect_dri_prime)"`
 
   static encodeInvite(data: Invite): string {
     const keyBody = data.privateKey.match(/-----[A-Z ]+-----\n([\s\S]+?)\n-----END/)?.[1]?.replace(/\s+/g, "");
-    return App.INVITE_VERSION + App.encode(App.packInvite({ ...data, privateKey: keyBody ?? data.privateKey })).replace(/-/g, "И");
+    const buf = App.inviteToBytes({ ...data, privateKey: keyBody ?? data.privateKey });
+    return App.INVITE_VERSION + deflateSync(buf).toString("base64url").replace(/-/g, "И");
   }
 
   static parseInvite(invite: string): Invite {
     if (invite.startsWith(App.INVITE_VERSION)) invite = invite.slice(App.INVITE_VERSION.length);
-    invite = invite.replace(/И/g, "-");
-    const data = App.unpackInvite(App.decode(invite));
+    const buf = inflateSync(Buffer.from(invite.replace(/И/g, "-"), "base64url"));
+    const data = App.bytesToInvite(buf);
     data.privateKey = `-----BEGIN OPENSSH PRIVATE KEY-----\n${data.privateKey}\n-----END OPENSSH PRIVATE KEY-----\n`;
     return data;
   }
 
-  private static packInvite(data: Invite): Record<string, unknown> {
-    const mcVersion = data.mcVersion.startsWith("Fabric ") ? "1" + data.mcVersion.slice(7)
-      : data.mcVersion.startsWith("Forge ") ? "0" + data.mcVersion.slice(6)
-      : data.mcVersion;
+  private static inviteToBytes(data: Invite): Buffer {
+    const out: number[] = [];
+    const u8 = (v: number) => out.push(v & 0xff);
+    const u16 = (v: number) => out.push((v >> 8) & 0xff, v & 0xff);
+    const str = (s: string) => {
+      const b = Buffer.from(s, "utf8");
+      if (b.length === 0 || b.length > 0xff) throwErr("Invalid invite string: wrong format");
+      u8(b.length);
+      out.push(...b);
+    };
+    const id = data.id.replace(/-/g, "");
+    if (id.length !== 32) throwErr("Invalid invite string: wrong format");
+    if (data.networkId.length !== 16) throwErr("Invalid invite string: wrong format");
+    out.push(...Buffer.from(id, "hex"));
+    out.push(...Buffer.from(data.networkId, "hex"));
+    u8(data.playersDataSync ? 1 : 0);
+    const marker = data.mcVersion.startsWith("Fabric ") ? 1 : data.mcVersion.startsWith("Forge ") ? 0 : -1;
+    if (marker === -1) throwErr("Invalid invite string: wrong format");
+    const parts = data.mcVersion.split(" ")[1]?.split(".") ?? [];
+    const minor = Number(parts[1]);
+    const patch = parts[2] !== undefined ? Number(parts[2]) : 0;
+    if (!Number.isInteger(minor) || minor < 0 || minor > 0xff || !Number.isInteger(patch) || patch < 0 || patch > 0xff) throwErr("Invalid invite string: wrong format");
+    u8(marker);
+    u8(minor);
+    u8(patch);
+    str(data.nickName);
+    str(data.serverName);
     const repoUrl = data.repoUrl.startsWith("git@github.com:") && data.repoUrl.endsWith(".git")
       ? data.repoUrl.slice("git@github.com:".length, -".git".length)
       : data.repoUrl;
-    const values = [data.id, data.networkId, data.nickName, data.serverName, data.privateKey, repoUrl, mcVersion, data.playersDataSync ? 1 : 0];
-    const packed: Record<string, unknown> = {};
-    for (const [i] of App.INVITE_FIELDS.entries()) packed[String(i)] = values[i];
-    return packed;
+    str(repoUrl);
+    const keyBytes = Buffer.from(data.privateKey, "base64");
+    if (keyBytes.length === 0 || keyBytes.length > 0xffff) throwErr("Invalid invite string: wrong format");
+    u16(keyBytes.length);
+    out.push(...keyBytes);
+    return Buffer.from(out);
   }
 
-  static unpackInvite(data: Record<string, unknown>): Invite {
-    const unpacked: Record<string, unknown> = {};
-    for (const [i, key] of App.INVITE_FIELDS.entries()) {
-      const v = data[String(i)];
-      if (key === "mcVersion") {
-        if (typeof v !== "string") throwErr("Invalid invite string: wrong format");
-        const str = v as string;
-        if (!/^[01]\d+\.\d+(?:\.\d+)?$/.test(str)) throwErr("Invalid invite string: wrong format");
-        unpacked[key] = str.startsWith("1") ? "Fabric " + str.slice(1) : "Forge " + str.slice(1);
-      } else if (key === "repoUrl") {
-        if (typeof v !== "string") throwErr("Invalid invite string: wrong format");
-        const str = v as string;
-        if (str.includes(":") || !str.includes("/")) throwErr("Invalid invite string: wrong format");
-        unpacked[key] = `git@github.com:${str}.git`;
-      } else if (key === "playersDataSync") {
-        if (v !== 0 && v !== 1) throwErr("Invalid invite string: wrong format");
-        unpacked[key] = v === 1;
-      } else {
-        unpacked[key] = v;
-      }
-    }
-    return unpacked as Invite;
+  private static bytesToInvite(buf: Buffer): Invite {
+    const bad = () => throwErr("Invalid invite string: wrong format");
+    let pos = 0;
+    const need = (n: number): Buffer => {
+      if (pos + n > buf.length) bad();
+      const slice = buf.subarray(pos, pos + n);
+      pos += n;
+      return slice;
+    };
+    const u8 = () => need(1).readUInt8(0);
+    const u16 = () => need(2).readUInt16BE(0);
+    const str = () => {
+      const len = u8();
+      if (len === 0) bad();
+      const s = need(len).toString("utf8");
+      if (!s) bad();
+      return s;
+    };
+    const id = need(16).toString("hex").replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, "$1-$2-$3-$4-$5");
+    const networkId = need(8).toString("hex");
+    const flags = u8();
+    if (flags !== 0 && flags !== 1) bad();
+    const marker = u8();
+    if (marker !== 0 && marker !== 1) bad();
+    const minor = u8();
+    const patch = u8();
+    const nickName = str();
+    const serverName = str();
+    const repoUrl = str();
+    if (repoUrl.includes(":") || !repoUrl.includes("/")) bad();
+    const keyLen = u16();
+    const privateKey = need(keyLen).toString("base64");
+    if (pos !== buf.length) bad();
+    return {
+      id,
+      networkId,
+      nickName,
+      serverName,
+      privateKey,
+      repoUrl: `git@github.com:${repoUrl}.git`,
+      mcVersion: (marker === 1 ? "Fabric " : "Forge ") + `1.${minor}${patch ? "." + patch : ""}`,
+      playersDataSync: flags === 1,
+    };
   }
 
   static isValidInvite(data: unknown): data is Invite {
