@@ -67,6 +67,8 @@ export default class App {
   private static readonly DESKTOP_ENTRY_PATH = join(USER_DIR, ".local", "share", "applications");
   private static readonly DESKTOP_ENTRY_FILE = join(App.DESKTOP_ENTRY_PATH, APP_NAME + ".desktop");
   private static readonly PENDING_DIR = join(INSTANCES_DIR, "PENDING_DIR");
+  private static readonly INVITE_VERSION = "V1";
+  private static readonly INVITE_FIELDS = ["id", "networkId", "nickName", "serverName", "privateKey", "repoUrl", "mcVersion", "playersDataSync"] as const;
   private static readonly SUPPORTED_PMS = {
     "dnf": sudo("dnf install -y"),
     "apt": sudo("apt install -y"),
@@ -354,24 +356,24 @@ echo "$(detect_dri_prime)"`
       if (!repoUrl) throwErr(`Error: Missing "repoUrl" for instance "${serverName}"`);
       if (!mcVersion) throwErr(`Error: Missing "version" for instance "${serverName}"`);
 
-      const data = {
+      const data: Invite = {
         id: instance!.id,
         networkId,
         nickName,
         serverName,
         privateKey,
-        repoUrl,
-        mcVersion,
-        playersDataSync: instance!.playersDataSync,
+        repoUrl: repoUrl!,
+        mcVersion: mcVersion!,
+        playersDataSync: instance!.playersDataSync ?? true,
       };
 
-      return App.encode(data);
+      return App.encodeInvite(data);
     }, "Failed to generate invite string");
   }
 
-  static async decodeInviteString(invite: string): Promise<string> {
+  static async importInvite(invite: string): Promise<string> {
     return await tryCatch(async () => {
-      const data = App.decode(invite) as Invite;
+      const data = App.parseInvite(invite);
       if (!App.isValidInvite(data)) throwErr("Invalid invite string: missing required fields");
       const { id, networkId, nickName, serverName, privateKey, repoUrl, mcVersion, playersDataSync } = data;
 
@@ -440,6 +442,30 @@ echo "$(detect_dri_prime)"`
 
   static decode(str: string): Record<string, unknown> {
     return JSON.parse(inflateSync(Buffer.from(str, "base64url")).toString());
+  }
+
+  static encodeInvite(data: Invite): string {
+    const keyBody = data.privateKey.match(/-----[A-Z ]+-----\n([\s\S]+?)\n-----END/)?.[1]?.replace(/\s+/g, "");
+    return App.INVITE_VERSION + App.encode(App.packInvite({ ...data, privateKey: keyBody ?? data.privateKey }));
+  }
+
+  static parseInvite(invite: string): Invite {
+    if (invite.startsWith(App.INVITE_VERSION)) invite = invite.slice(App.INVITE_VERSION.length);
+    const data = App.unpackInvite(App.decode(invite));
+    data.privateKey = `-----BEGIN OPENSSH PRIVATE KEY-----\n${data.privateKey}\n-----END OPENSSH PRIVATE KEY-----\n`;
+    return data;
+  }
+
+  private static packInvite(data: Invite): Record<string, unknown> {
+    const packed: Record<string, unknown> = {};
+    for (const [i, key] of App.INVITE_FIELDS.entries()) packed[String(i)] = data[key];
+    return packed;
+  }
+
+  static unpackInvite(data: Record<string, unknown>): Invite {
+    const unpacked: Record<string, unknown> = {};
+    for (const [i, key] of App.INVITE_FIELDS.entries()) unpacked[key] = data[String(i)];
+    return unpacked as Invite;
   }
 
   static isValidInvite(data: unknown): data is Invite {

@@ -38,6 +38,13 @@ rl.question(`Current version: ${current}\nNew version: `, (input) => {
   pkg.version = trimmed;
   fs.writeFileSync(PKG_FILE, JSON.stringify(pkg, null, 2) + "\n");
 
+  const docsContent = fs.readFileSync("docs/index.html", "utf8");
+  const newDocsContent = docsContent.replace(
+    /<h1>MultiplayerHub( v\d+\.\d+\.\d+)?<\/h1>/,
+    `<h1>MultiplayerHub v${trimmed}</h1>`,
+  );
+  fs.writeFileSync("docs/index.html", newDocsContent);
+
   console.log(`Bumped to ${trimmed}`);
   completed = true;
   rl.close();

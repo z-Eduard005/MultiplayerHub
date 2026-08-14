@@ -433,7 +433,7 @@ tryCatch(
           maxLen: 2048,
           validate: (v: string) => {
             try {
-              const data = App.decode(v);
+              const data = App.parseInvite(v);
               if (!App.isValidInvite(data)) return "Invalid invite string: missing required fields";
               if (instances.some(i => i.id === data.id)) return "This server is already in your list";
             } catch {
@@ -444,7 +444,7 @@ tryCatch(
         });
 
         if (cancelled) continue;
-        const invitedName = await App.decodeInviteString(invite);
+        const invitedName = await App.importInvite(invite);
         const invitedInst = await App.getInstance(invitedName);
 
         const installed = await initInstanceVersion(invitedName, invitedInst!.version);
