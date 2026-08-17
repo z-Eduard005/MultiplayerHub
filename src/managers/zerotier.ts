@@ -75,7 +75,7 @@ export default class Zerotier {
       networks.includes("REQUESTING_CONFIGURATION") ||
       !networks.includes("PRIVATE")
     ) {
-      throwErr(`Zerotier authorization failed\n${amIOwner ? `Authorise yourself: https://my.zerotier.com/network/${id}` : "Contact with owner of the server!"}`);
+      throwErr(`Zerotier authorization failed\n${amIOwner ? `Authorise yourself: ${Zerotier.ADMIN_URL}/network/${id}` : "Contact with owner of the server!"}`);
     }
   }
 
@@ -144,7 +144,7 @@ export default class Zerotier {
           );
         });
       } else {
-        await run(`curl -fsSL ${Zerotier.INSTALLER_URL}`, { inherit: true });
+        await run(`curl -fsSL ${Zerotier.INSTALLER_URL} | ${sudo("sh")}`, { inherit: true });
         await tryCatch(
           async () => {
             await run(sudo("systemctl start zerotier-one"), { inherit: true });

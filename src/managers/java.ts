@@ -106,7 +106,7 @@ export default class Java {
     const apiUrl = `https://api.adoptium.net/v3/assets/latest/${ver}/hotspot?os=${os}&arch=x64`;
 
     const prefix = index && total ? `[${index}/${total}]: ` : "";
-    const loaderText = `${UI.textColor(prefix, "info")}Installing Java ${ver}...`;
+    const loaderText = `${UI.textColor(prefix, "accent")}Installing Java ${ver}...`;
 
     const loader1 = UI.loader(loaderText);
     const res = await fetch(apiUrl);

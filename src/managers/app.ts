@@ -158,12 +158,12 @@ echo "$(detect_dri_prime)"`
         await writeFile(
           App.DESKTOP_ENTRY_FILE,
           `[Desktop Entry]
-          Name=${APP_NAME}
-          Exec=${LINUX_SHELL} -lc "DRI_PRIME=${driPrime} ${App.FILE}"
-          Terminal=true
-          Type=Application
-          Icon=${App.ICON_FILE}
-          Categories=Application;`,
+Name=${APP_NAME}
+Exec=${LINUX_SHELL} -lc "DRI_PRIME=${driPrime} ${App.FILE}"
+Terminal=true
+Type=Application
+Icon=${App.ICON_FILE}
+Categories=Application;`,
           "utf8"
         );
         await run(`update-desktop-database ${App.DESKTOP_ENTRY_PATH}`, { inherit: true });
@@ -253,7 +253,8 @@ echo "$(detect_dri_prime)"`
         "lspci": "pciutils",
         "wl-copy": "wl-clipboard",
         "rsync": "rsync",
-        "curl": "curl"
+        "curl": "curl",
+        "zerotier-one": "zerotier-one"
       }
     );
 
