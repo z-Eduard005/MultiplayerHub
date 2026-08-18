@@ -1,7 +1,7 @@
 import { readFile, writeFile, readdir, cp, rename, rm } from "fs/promises";
 import { exists, run, log, throwErr, tryCatch } from "../utils"
 import { join, extname } from "path";
-import { IS_WIN32, MC_DIR, VERSIONS_DIR } from "../constants";
+import { IS_WIN32, LINUX_SHELL, MC_DIR, VERSIONS_DIR } from "../constants";
 import UI from "./ui";
 import { spawn } from "child_process";
 import Process from "./process";
@@ -128,7 +128,7 @@ export default class Tlauncher {
     await tryCatch(
       async () => {
         return await run(
-          IS_WIN32 ? `start ${Tlauncher.INSTALLER_URL}` : `sh -c "$(curl -fsSL ${Tlauncher.LINUX_MC_INSTALLER_URL})"`,
+          IS_WIN32 ? `start ${Tlauncher.INSTALLER_URL}` : `${LINUX_SHELL} -lc "$(curl -fsSL ${Tlauncher.LINUX_MC_INSTALLER_URL})"`,
           { inherit: true }
         );
       }, "Error while installing tlauncher (check your internet)"

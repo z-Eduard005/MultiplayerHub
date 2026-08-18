@@ -172,7 +172,7 @@ export default class Zerotier {
         if (await isSuccess(async () => await run(`command -v pacman`))) {
           await App.pmInstall({ "zerotier-one": "zerotier-one" });
         } else {
-          await run(`curl -fsSL ${Zerotier.INSTALLER_URL} | ${sudo("sh")}`, { inherit: true });
+          await run(`curl -fsSL ${Zerotier.INSTALLER_URL} | ${sudo("bash")}`, { inherit: true });
         }
 
         await Zerotier.installService();

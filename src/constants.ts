@@ -44,7 +44,7 @@ export const MC_DIR = join(
 
 export const GAME_DIR = join(MC_DIR, "game");
 export const DESKTOP_DIR = join(USER_DIR, "Desktop");
-export const APP_VERSION = "1.4.7";
+export const APP_VERSION = "1.4.8";
 export const APP_NAME = "MultiplayerHub";
 export const APP_DIR = IS_WIN32
   ? join(USER_DIR, "AppData", "Roaming", "MultiplayerHub")
