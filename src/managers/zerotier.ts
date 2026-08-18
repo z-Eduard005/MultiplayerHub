@@ -5,6 +5,7 @@ import { setTimeout as setTimeoutPromise } from "timers/promises";
 import { join } from "path";
 import { networkInterfaces, tmpdir } from "os";
 import UI from "./ui";
+import App from "./app";
 
 export default class Zerotier {
   static readonly ADMIN_URL = "https://central.zerotier.com";
@@ -24,7 +25,8 @@ export default class Zerotier {
   static broadcastIP: string | null = null;
   static ip: string | null = null;
 
-  private static async setupSudoers() {
+  static async setupSudoers() {
+    if (IS_WIN32 || await exists(Zerotier.SUDOERS_FILE)) return;
     log("Setting up sudo privileges for Zerotier...", "info")
     await tryCatch(() => {
       return retryRun(() => {
@@ -127,6 +129,29 @@ export default class Zerotier {
     return ztIf!.address;
   }
 
+  static async installService() {
+    await tryCatch(
+      async () => {
+        await run(sudo("systemctl start zerotier-one"), { inherit: true });
+
+        const firewalldActive = await isSuccess(async () => await run(`systemctl is-active --quiet firewalld`));
+        const portOpen = await isSuccess(async () => await run(sudo("firewall-cmd --query-port=9993/udp --permanent")));
+
+        if (firewalldActive && !portOpen) {
+          await run(
+            [
+              sudo("firewall-cmd --add-port=9993/udp --permanent"),
+              sudo("firewall-cmd --reload"),
+            ], { inherit: true }
+          );
+
+          await run(sudo("systemctl restart zerotier-one"), { inherit: true });
+        }
+      },
+      "Firewall blocked zerotier service"
+    );
+  }
+
   static async install() {
     await tryCatch(async () => {
       if (await exists(Zerotier.FILE)) return;
@@ -144,26 +169,13 @@ export default class Zerotier {
           );
         });
       } else {
-        await run(`curl -fsSL ${Zerotier.INSTALLER_URL} | ${sudo("sh")}`, { inherit: true });
-        await tryCatch(
-          async () => {
-            await run(sudo("systemctl start zerotier-one"), { inherit: true });
+        if (await isSuccess(async () => await run(`command -v pacman`))) {
+          await App.pmInstall({ "zerotier-one": "zerotier-one" });
+        } else {
+          await run(`curl -fsSL ${Zerotier.INSTALLER_URL} | ${sudo("sh")}`, { inherit: true });
+        }
 
-            const firewalldActive = await isSuccess(async () => await run(`systemctl is-active --quiet firewalld`));
-            if (firewalldActive) {
-              await run(
-                [
-                  sudo("firewall-cmd --add-port=9993/udp --permanent"),
-                  sudo("firewall-cmd --reload"),
-                ], { inherit: true }
-              );
-            }
-
-            await run(sudo("systemctl restart zerotier-one"), { inherit: true });
-          },
-          "Firewall blocked zerotier service"
-        );
-        await Zerotier.setupSudoers();
+        await Zerotier.installService();
       }
     }, "Zerotier is not installed");
   }

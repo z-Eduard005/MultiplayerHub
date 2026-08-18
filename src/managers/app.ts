@@ -69,8 +69,8 @@ export default class App {
   private static readonly PENDING_DIR = join(INSTANCES_DIR, "PENDING_DIR");
   private static readonly INVITE_VERSION = "V1";
   private static readonly SUPPORTED_PMS = {
-    "dnf": sudo("dnf install -y"),
-    "apt": sudo("apt install -y"),
+    "dnf": sudo("dnf install -y --skip-unavailable"),
+    "apt": sudo("apt install -y --ignore-missing"),
     "pacman": sudo("pacman -S --noconfirm"),
     "zypper": sudo("zypper install -y"),
     "xbps-install": sudo("xbps-install -Sy"),
@@ -253,8 +253,7 @@ Categories=Application;`,
         "lspci": "pciutils",
         "wl-copy": "wl-clipboard",
         "rsync": "rsync",
-        "curl": "curl",
-        "zerotier-one": "zerotier-one"
+        "curl": "curl"
       }
     );
 
@@ -267,6 +266,8 @@ Categories=Application;`,
     await Java.installAll();
     await GH.install();
     await Zerotier.install();
+    await Zerotier.installService();
+    await Zerotier.setupSudoers();
     await Zerotier.leaveAll();
 
     const config = await App.getConfig(CONFIG_FILE);
