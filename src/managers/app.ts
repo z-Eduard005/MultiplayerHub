@@ -63,7 +63,6 @@ export default class App {
   private static readonly FILE = join(APP_DIR, IS_WIN32 ? APP_NAME + ".exe" : APP_NAME);
   private static readonly ICON_FILE = join(APP_DIR, IS_WIN32 ? "icon.ico" : "icon.png");
   private static readonly SERVER_ICON_FILE = join(APP_DIR, "server-icon.png");
-  private static readonly SHORTCUT_FILE = join(APP_DIR, `${APP_NAME}.lnk`);
   private static readonly DESKTOP_ENTRY_PATH = join(USER_DIR, ".local", "share", "applications");
   private static readonly DESKTOP_ENTRY_FILE = join(App.DESKTOP_ENTRY_PATH, APP_NAME + ".desktop");
   private static readonly PENDING_DIR = join(INSTANCES_DIR, "PENDING_DIR");
@@ -76,6 +75,7 @@ export default class App {
     "xbps-install": sudo("xbps-install -Sy"),
   };
 
+  static readonly SHORTCUT_FILE = join(APP_DIR, `${APP_NAME}.lnk`);
   private static isNewerVersion(releaseTag: string): boolean {
     const [r0 = 0, r1 = 0, r2 = 0] = releaseTag.replace(/^v/, "").split(".").map(Number);
     const [c0 = 0, c1 = 0, c2 = 0] = APP_VERSION.split(".").map(Number);
@@ -136,13 +136,14 @@ echo "$(detect_dri_prime)"`
       }
 
       if (IS_WIN32 && !(await exists(App.SHORTCUT_FILE))) {
-        await retryRun(() => {
-          return run(
+        await retryRun(async () => {
+          await run(`schtasks /create /tn "${APP_NAME}Task" /tr "${App.FILE}" /sc ONCE /sd 01/01/2000 /st 00:00 /rl HIGHEST /f`);
+          await run(
             `powershell -Command "${`
             $WshShell = New-Object -ComObject WScript.Shell
             $Shortcut = $WshShell.CreateShortcut('${App.SHORTCUT_FILE}')
-            $Shortcut.TargetPath = 'powershell'
-            $Shortcut.Arguments = '-Command "Start-Process -FilePath ''${App.FILE}'' -Verb RunAs -WindowStyle Normal"'
+            $Shortcut.TargetPath = 'schtasks'
+            $Shortcut.Arguments = '/run /tn "${APP_NAME}Task"'
             $Shortcut.WorkingDirectory = '${APP_DIR}'
             $Shortcut.IconLocation = '${App.ICON_FILE},0'
             $Shortcut.Description = '${APP_NAME}'
@@ -266,7 +267,7 @@ Categories=Application;`,
     await Java.installAll();
     await GH.install();
     await Zerotier.install();
-    await Zerotier.installService();
+    await Zerotier.installLinuxService();
     await Zerotier.setupSudoers();
     await Zerotier.leaveAll();
 

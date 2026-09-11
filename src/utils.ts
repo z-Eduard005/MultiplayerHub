@@ -34,7 +34,7 @@ export const run: Run = async (commands, options) => {
       child.stdout.on("data", (chunk) => {
         stdout += chunk;
         if (options?.inherit) {
-          process.stdout.write(chunk);
+          process.stdout.write("\r" + chunk);
         }
       });
       child.stderr.on("data", (chunk) => {

@@ -26,7 +26,9 @@ export default class Zerotier {
   static ip: string | null = null;
 
   static async setupSudoers() {
-    if (IS_WIN32 || await exists(Zerotier.SUDOERS_FILE)) return;
+    const configured = await isSuccess(async () => await run(sudo(`-n -k "${Zerotier.FILE}" info`)));
+    if (IS_WIN32 || configured) return;
+
     log("Setting up sudo privileges for Zerotier...", "info")
     await tryCatch(() => {
       return retryRun(() => {
@@ -129,7 +131,9 @@ export default class Zerotier {
     return ztIf!.address;
   }
 
-  static async installService() {
+  static async installLinuxService() {
+    if (IS_WIN32 || await isSuccess(async () => await run("systemctl is-active zerotier-one"))) return;
+
     await tryCatch(
       async () => {
         await run(sudo("systemctl start zerotier-one"), { inherit: true });
@@ -175,7 +179,7 @@ export default class Zerotier {
           await run(`curl -fsSL ${Zerotier.INSTALLER_URL} | ${sudo("bash")}`, { inherit: true });
         }
 
-        await Zerotier.installService();
+        await Zerotier.installLinuxService();
       }
     }, "Zerotier is not installed");
   }

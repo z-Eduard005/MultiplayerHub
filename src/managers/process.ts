@@ -5,6 +5,7 @@ import UI from "./ui";
 import Git from "./git";
 import Hosting from "./hosting";
 import Java from "./java";
+import App from "./app";
 
 export default class Process {
   private static closing = false;
@@ -45,7 +46,7 @@ export default class Process {
   private static async ensureAdmin() {
     const isAdmin = await isSuccess(async () => await run("net session"));
     if (isAdmin) return;
-    throwErr(`You don't have admin rights!\nPlease start the program as an admin`);
+    throwErr(`You don't have admin rights!\nPlease start the program with shortcut "${App.SHORTCUT_FILE}"`);
   }
 
   static async init() {
@@ -75,7 +76,7 @@ export default class Process {
   static async pause() {
     await new Promise<void>(async (resolve) => {
       await tryCatch(() => {
-        process.stdout.write(UI.textColor("Press Enter to continue...", "warning"));
+        process.stdout.write(UI.textColor("\rPress Enter to continue...", "warning"));
         const rl = createInterface({ input: process.stdin, terminal: true });
         rl.question("", () => {
           rl.close();

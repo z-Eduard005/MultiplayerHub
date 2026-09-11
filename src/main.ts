@@ -64,12 +64,20 @@ tryCatch(
             : {
               action: {
                 label: "□ Server Folder", run: () => {
-                  run(`${IS_WIN32 ? 'explorer.exe' : "xdg-open"} "${join(INSTANCES_DIR, serverName, "server")}"`);
+                  tryCatch(
+                    async () => {
+                      await run(`${IS_WIN32 ? 'explorer.exe' : "xdg-open"} "${join(INSTANCES_DIR, serverName, "server")}"`);
+                    }, "Folder doesn't exist", true
+                  )
                 }
               },
               action2: {
                 label: "□ Client Folder", run: () => {
-                  run(`${IS_WIN32 ? 'explorer.exe' : "xdg-open"} "${join(GAME_DIR, "home", serverName)}"`);
+                  tryCatch(
+                    async () => {
+                      await run(`${IS_WIN32 ? 'explorer.exe' : "xdg-open"} "${join(GAME_DIR, "home", serverName)}"`);
+                    }, "Folder doesn't exist", true
+                  )
                 }
               }
             }
