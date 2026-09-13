@@ -113,6 +113,7 @@ tryCatch(
           await App.updateInstance(serverName, { ram: Number(value) });
         }
         if (value === "play-on-server") {
+          if (App.isPlayBlocked(instanceError)) continue;
           const valid = await Tlauncher.isValidAccount();
           if (!valid) {
             instanceError.value = 'You should choose microsoft or ely.by account in tlauncher and press "Play" once!';

@@ -21,11 +21,18 @@ export default class Hosting {
   private static readonly STALE_TIMEOUT = 20_000;
   private static readonly PROBE_DELAYS = [1000, 1000, 2000, 3000, 5000, 6000];
   private static readonly INITIAL_LISTEN = 2_000;
+  private static readonly HEARTBEAT_WINDOW_SIZE = 10;
+  private static readonly HEARTBEAT_LOSS_THRESHOLD = 0.5;
+  static readonly BAD_CONNECTION_MSG = "Your internet connection is too bad for playing";
   private static socket: Socket;
   private static heartBeatTimer: NodeJS.Timeout | undefined;
   private static staleTimer: NodeJS.Timeout | undefined;
   private static confirmTimer: NodeJS.Timeout | undefined;
   private static probeTimer: NodeJS.Timeout | undefined;
+  private static heartbeatCheckTimer: NodeJS.Timeout | undefined;
+  private static heartbeatWindow: boolean[] = [];
+  private static heartbeatArrived = false;
+  private static takeoverInProgress = false;
   private static whoisProbeActive = false;
   private static probeAttempts = 0;
   private static probeSpinner: { stop: () => void } | null = null;
@@ -126,6 +133,8 @@ export default class Hosting {
       const fullIP = `${msg.ip}:${Java.PORT}`;
       log(`Someone is already playing on ${fullIP}`, "info");
       await Minecraft.addServer(fullIP, instance.name);
+      Hosting.startHeartbeatCheck();
+      Hosting.heartbeatArrived = true;
       Hosting.continueMonitoring(instance);
       return;
     }
@@ -135,6 +144,8 @@ export default class Hosting {
         Hosting.whoisProbeActive = false;
         clearTimeout(Hosting.probeTimer);
       }
+      if (Hosting.takeoverInProgress) Hosting.startHeartbeatCheck();
+      Hosting.heartbeatArrived = true;
       Hosting.continueMonitoring(instance);
       return;
     }
@@ -150,6 +161,8 @@ export default class Hosting {
       const fullIP = `${msg.ip}:${Java.PORT}`;
       log(`Reconnecting to new host on ${fullIP}`, "info");
       await Minecraft.addServer(fullIP, instance.name);
+      Hosting.startHeartbeatCheck();
+      Hosting.heartbeatArrived = true;
       Hosting.continueMonitoring(instance);
     }
   }
@@ -230,15 +243,48 @@ export default class Hosting {
     clearTimeout(Hosting.staleTimer);
     Hosting.staleTimer = setTimeout(() => {
       if (Hosting.state !== "FOLLOWING") return;
+      Hosting.takeoverInProgress = true;
       Hosting.startWhoisProbes(instance);
     }, Hosting.STALE_TIMEOUT);
+  }
+
+  private static startHeartbeatCheck() {
+    Hosting.takeoverInProgress = false;
+    Hosting.heartbeatArrived = false;
+    Hosting.heartbeatWindow = [];
+    clearInterval(Hosting.heartbeatCheckTimer);
+    Hosting.heartbeatCheckTimer = setInterval(() => {
+      if (Hosting.state !== "FOLLOWING") {
+        clearInterval(Hosting.heartbeatCheckTimer);
+        return;
+      }
+      if (Hosting.takeoverInProgress) return;
+
+      Hosting.heartbeatWindow.push(Hosting.heartbeatArrived);
+      Hosting.heartbeatArrived = false;
+      if (Hosting.heartbeatWindow.length > Hosting.HEARTBEAT_WINDOW_SIZE) {
+        Hosting.heartbeatWindow.shift();
+      }
+      if (Hosting.heartbeatWindow.length >= Hosting.HEARTBEAT_WINDOW_SIZE) {
+        const received = Hosting.heartbeatWindow.filter(Boolean).length;
+        if (received / Hosting.heartbeatWindow.length < Hosting.HEARTBEAT_LOSS_THRESHOLD) {
+          clearInterval(Hosting.heartbeatCheckTimer);
+          Hosting.closeReason = Hosting.BAD_CONNECTION_MSG;
+          Hosting.cleanup();
+          Hosting.closeFlag.value = true;
+          Hosting.resolve();
+        }
+      }
+    }, Hosting.HEARTBEAT_INTERVAL);
   }
 
   private static cleanup() {
     Hosting.whoisProbeActive = false;
     Hosting.probeSpinner?.stop();
     Hosting.probeSpinner = null;
+    Hosting.takeoverInProgress = false;
     clearInterval(Hosting.heartBeatTimer);
+    clearInterval(Hosting.heartbeatCheckTimer);
     clearTimeout(Hosting.staleTimer);
     clearTimeout(Hosting.confirmTimer);
     clearTimeout(Hosting.probeTimer);

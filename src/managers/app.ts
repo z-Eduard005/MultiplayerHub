@@ -76,6 +76,14 @@ export default class App {
   };
 
   static readonly SHORTCUT_FILE = join(APP_DIR, `${APP_NAME}.lnk`);
+  static playBlockedUntil = 0;
+
+  static isPlayBlocked(instanceError: { value: string | null }): boolean {
+    if (Date.now() >= App.playBlockedUntil) return false;
+    const remaining = Math.ceil((App.playBlockedUntil - Date.now()) / 1000);
+    instanceError.value = `Connection too unstable, wait ${remaining}s`;
+    return true;
+  }
   private static isNewerVersion(releaseTag: string): boolean {
     const [r0 = 0, r1 = 0, r2 = 0] = releaseTag.replace(/^v/, "").split(".").map(Number);
     const [c0 = 0, c1 = 0, c2 = 0] = APP_VERSION.split(".").map(Number);
@@ -565,6 +573,8 @@ Categories=Application;`,
   }
 
   static async runInstance(serverName: string, instanceError: { value: string | null }) {
+    if (App.isPlayBlocked(instanceError)) return;
+
     UI.destroyAltScreen();
     log(`Starting ${serverName} server...`, "info");
     const closeFlag = { value: false };
@@ -606,6 +616,9 @@ Categories=Application;`,
 
       if (closeFlag.value) {
         if (Hosting.closeReason) instanceError.value = Hosting.closeReason;
+        if (Hosting.closeReason === Hosting.BAD_CONNECTION_MSG) {
+          App.playBlockedUntil = Date.now() + 30_000;
+        }
         await App.closeInstance(serverName, ztNetworkId);
         return;
       }
