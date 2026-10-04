@@ -6,6 +6,7 @@ import { IS_WIN32, LINUX_SHELL, INSTANCES_DIR } from "./constants";
 import type { TryCatch, Run } from "./types";
 import { access, constants } from "fs/promises";
 import UI, { type LogType } from "./managers/ui";
+import Logger from "./managers/logger";
 
 export const run: Run = async (commands, options) => {
   const result: string[] = [],
@@ -114,6 +115,7 @@ export const tryCatch: TryCatch = async (fn, msgOrFn, isWarn) => {
     return await fn();
   } catch (err) {
     const stringErr = String(err);
+    Logger.error(err);
     return (
       typeof msgOrFn !== "string"
         ? msgOrFn && (await msgOrFn(stringErr))

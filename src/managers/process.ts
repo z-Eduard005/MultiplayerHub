@@ -2,6 +2,7 @@ import { IS_WIN32, USER_DIR, APP_NAME } from "../constants";
 import { isSuccess, log, run, throwErr, tryCatch } from "../utils";
 import { createInterface } from "readline";
 import UI from "./ui";
+import Logger from "./logger";
 import Git from "./git";
 import Hosting from "./hosting";
 import Java from "./java";
@@ -51,17 +52,20 @@ export default class Process {
 
   static async init() {
     process.chdir(USER_DIR);
+    await Logger.init();
 
     if (IS_WIN32) await Process.ensureAdmin();
     await Process.killPrevious();
 
     process.on("uncaughtException", err => {
       UI.destroyAltScreen();
+      Logger.error(err);
       log("Uncaught Exception: " + err, "error");
       Process.stop();
     });
     process.on("unhandledRejection", reason => {
       UI.destroyAltScreen();
+      Logger.error(reason);
       log("Unhandled Rejection: " + reason, "error");
       Process.stop();
     });
@@ -95,6 +99,7 @@ export default class Process {
     await Java.kill();
     Git.worldDisableRepeatedPush();
     await Hosting.close();
+    Logger.restore();
 
     await Process.pause();
     process.exit(0);
