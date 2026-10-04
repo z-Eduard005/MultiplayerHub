@@ -1,16 +1,16 @@
 import { readFile, writeFile, readdir, cp, rename, rm } from "fs/promises";
 import { exists, run, log, throwErr, tryCatch } from "../utils"
-import { join, extname } from "path";
+import { join, extname, resolve } from "path";
 import { IS_WIN32, LINUX_SHELL, MC_DIR, VERSIONS_DIR } from "../constants";
 import UI from "./ui";
 import { spawn } from "child_process";
 import Process from "./process";
 
 export default class Tlauncher {
-  private static readonly PROPS_FILE = join(MC_DIR, "tl.properties");
+  private static readonly PROPS_FILE = join(MC_DIR as string, "tl.properties");
   private static readonly PROPS_VERSION_ENTRY = "multiplayerhub=V1";
   private static readonly FILENAME = IS_WIN32 ? "LL.exe" : "LL.sh";
-  private static readonly FILE = join(MC_DIR, Tlauncher.FILENAME);
+  private static readonly FILE = join(MC_DIR as string, Tlauncher.FILENAME);
   private static readonly INSTALLER_URL = "https://dl.llaun.ch/legacy/installer";
   private static readonly LINUX_MC_INSTALLER_URL = "https://raw.githubusercontent.com/z-Eduard005/linux-mc-installer/main/installer.sh)";
   private static readonly ALLOWED_ACCOUNT_TYPES = ["login.account.type=minecraft", "login.account.type=ely"]
@@ -118,7 +118,11 @@ export default class Tlauncher {
   }
 
   static async install() {
+    if (!MC_DIR) return throwErr("TLauncher location is not resolved: missing Proton prefix");
     if (await exists(MC_DIR)) return;
+    if (await exists(resolve(MC_DIR, "..")) || await exists(resolve(MC_DIR, "..", ".."))) {
+      throwErr(`Your tlauncher folder already exists!\nPlease delete it in order to install the program:\n${resolve(MC_DIR, "..", "..")}`)
+    }
 
     log(
       `This server works only with legacy-launcher${IS_WIN32 ? "\nInstall tlauncher first (from opening link) and try later..." : ` and steam-proton setup\nInstalling using script:\n'${Tlauncher.LINUX_MC_INSTALLER_URL}'`}`, "warning"

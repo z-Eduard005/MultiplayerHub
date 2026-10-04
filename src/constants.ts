@@ -22,27 +22,25 @@ export const PFX_FLAG_FILE = join(
   ".pfx-created"
 );
 
-export const MC_DIR = join(
-  IS_WIN32
-    ? join(USER_DIR, MC_REL_PATH)
-    : existsSync(PFX_FLAG_FILE)
-      ? join(
-        USER_DIR,
-        ".steam",
-        "steam",
-        "steamapps",
-        "compatdata",
-        readFileSync(PFX_FLAG_FILE, "utf8").trim(),
-        "pfx",
-        "drive_c",
-        "users",
-        "steamuser",
-        MC_REL_PATH
-      )
-      : String(null)
-);
+export const MC_DIR = IS_WIN32
+  ? join(USER_DIR, MC_REL_PATH)
+  : existsSync(PFX_FLAG_FILE)
+    ? join(
+      USER_DIR,
+      ".steam",
+      "steam",
+      "steamapps",
+      "compatdata",
+      readFileSync(PFX_FLAG_FILE, "utf8").trim(),
+      "pfx",
+      "drive_c",
+      "users",
+      "steamuser",
+      MC_REL_PATH
+    )
+    : null
 
-export const GAME_DIR = join(MC_DIR, "game");
+export const GAME_DIR = join(MC_DIR as string, "game");
 export const DESKTOP_DIR = join(USER_DIR, "Desktop");
 export const APP_VERSION = "1.4.9";
 export const APP_NAME = "MultiplayerHub";

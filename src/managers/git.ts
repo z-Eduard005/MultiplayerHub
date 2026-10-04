@@ -88,6 +88,7 @@ export default class Git {
       await run(
         [
           "git init -b world",
+          "git config core.fileMode false",
           `git remote add origin ${repoUrl}`,
           "git add -A",
           'git commit --allow-empty -m "init"',
@@ -242,6 +243,7 @@ export default class Git {
       await run(
         [
           `git init -b ${branch}`,
+          "git config core.fileMode false",
           `git remote add origin ${url}`,
           `git commit --allow-empty -m "init"`
         ],
@@ -265,8 +267,11 @@ export default class Git {
 
     if (inst.owner === "me") {
       await App.syncClientData("save", serverName);
-      log("Server uploading...", "info");
-      await Git.push("server", serverName);
+      const serverChanges = await run("git status --porcelain", { cwd: serverDir });
+      if (serverChanges.length !== 0) {
+        log("Server uploading...", "info");
+        await Git.push("server", serverName);
+      }
     }
 
     await tryCatch(async () => {
