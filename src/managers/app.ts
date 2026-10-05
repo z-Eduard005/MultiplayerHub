@@ -243,12 +243,14 @@ Categories=Application;`,
       await App.putConfig(CONFIG_FILE, { instances: filtered });
     }
 
-    const versionEntries = await readdir(VERSIONS_DIR, { withFileTypes: true });
-    for (const entry of versionEntries) {
-      if (!entry.isDirectory() || filtered.some(i => i.name === entry.name)) continue;
+    if (await exists(VERSIONS_DIR)) {
+      const versionEntries = await readdir(VERSIONS_DIR, { withFileTypes: true });
+      for (const entry of versionEntries) {
+        if (!entry.isDirectory() || filtered.some(i => i.name === entry.name)) continue;
 
-      if (await exists(join(VERSIONS_DIR, entry.name, "multiplayerhub-version"))) {
-        await rm(join(VERSIONS_DIR, entry.name), { recursive: true, force: true });
+        if (await exists(join(VERSIONS_DIR, entry.name, "multiplayerhub-version"))) {
+          await rm(join(VERSIONS_DIR, entry.name), { recursive: true, force: true });
+        }
       }
     }
   }

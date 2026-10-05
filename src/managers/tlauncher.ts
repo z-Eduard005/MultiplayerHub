@@ -144,6 +144,8 @@ export default class Tlauncher {
 
   static async installedVersions(excludeNames: string[] = []): Promise<string[]> {
     return await tryCatch(async () => {
+      if (!(await exists(VERSIONS_DIR))) return [];
+
       const entries = await readdir(VERSIONS_DIR, { withFileTypes: true });
       const dirs = entries.filter(e => e.isDirectory()).map(e => e.name).filter(d => !excludeNames.includes(d));
       const hasJar = await Promise.all(dirs.map(d => exists(join(VERSIONS_DIR, d, `${d}.jar`))));

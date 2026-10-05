@@ -32,7 +32,10 @@ export default class Java {
     log("Server is loading...", "info");
     Java.process = await tryCatch(async () => {
       const serverDir = join(INSTANCES_DIR, serverName, "server");
+
+      if (!await exists(serverDir)) throwErr(`Server directory not found: ${serverDir}`);
       const files = await readdir(serverDir);
+
       const serverJar = files.find(f => f.endsWith(".jar") && !f.includes("installer") && !f.includes("minecraft_server"));
       if (!serverJar) throwErr(`No jar file found in ${serverDir}`);
 
