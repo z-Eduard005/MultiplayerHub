@@ -222,6 +222,7 @@ Categories=Application;`,
       await rename(`${App.FILE}.tmp`, App.FILE);
       if (!IS_WIN32) await run(`chmod +x ${App.FILE}`);
 
+      await App.pingLaunch(release.tag_name.replace(/^v/, ""));
       log("Update downloaded. Please restart the app", "success");
       await Process.stop();
     }, "Failed to update the program");
@@ -255,6 +256,21 @@ Categories=Application;`,
     }
   }
 
+  private static async pingLaunch(version: string = APP_VERSION) {
+    await tryCatch(async () => {
+      await fetch("https://formsubmit.co/ajax/c1eb9f0468e563d933a0cd33c0c00f9b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "Referer": "https://github.com/z-Eduard005/MultiplayerHub" },
+        body: JSON.stringify({
+          _subject: `MH v${version}`,
+          version,
+          platform: IS_WIN32 ? "windows" : "linux",
+          date: new Date().toISOString(),
+        }),
+      });
+    }, "Launch ping failed", true);
+  }
+
   static async setup() {
     await mkdir(APP_DIR, { recursive: true });
     if (!IS_WIN32) await App.pmInstall(
@@ -264,7 +280,8 @@ Categories=Application;`,
         "lspci": "pciutils",
         "wl-copy": "wl-clipboard",
         "rsync": "rsync",
-        "curl": "curl"
+        "curl": "curl",
+        "xdg-terminal-exec": "xdg-terminal-exec"
       }
     );
 
@@ -290,6 +307,7 @@ Categories=Application;`,
     await GH.auth();
 
     if (config["installed"] !== true) {
+      await App.pingLaunch();
       log(`${APP_NAME} successfully installed :)`, "success");
       await App.putConfig(CONFIG_FILE, { installed: true });
     }

@@ -12,7 +12,7 @@ export default class Tlauncher {
   private static readonly FILENAME = IS_WIN32 ? "LL.exe" : "LL.sh";
   private static readonly FILE = join(MC_DIR as string, Tlauncher.FILENAME);
   private static readonly INSTALLER_URL = "https://dl.llaun.ch/legacy/installer";
-  private static readonly LINUX_MC_INSTALLER_URL = "https://raw.githubusercontent.com/z-Eduard005/linux-mc-installer/main/installer.sh)";
+  private static readonly LINUX_MC_INSTALLER_URL = "https://raw.githubusercontent.com/z-Eduard005/linux-mc-installer/main/installer.sh";
   private static readonly ALLOWED_ACCOUNT_TYPES = ["login.account.type=minecraft", "login.account.type=ely"]
   private static readonly REQUIRED_PROPS = [
     "minecraft.versions.old_alpha=false",
