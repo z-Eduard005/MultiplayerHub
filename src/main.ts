@@ -1,6 +1,6 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { APP_START_ART, CONFIG_FILE, GAME_DIR, INSTANCES_DIR, IS_WIN32 } from "./constants";
+import { APP_START_ART, APP_VERSION, CONFIG_FILE, GAME_DIR, INSTANCES_DIR, IS_WIN32 } from "./constants";
 import { log, tryCatch, throwErr, run } from "./utils";
 import UI, { type ListItem } from "./managers/ui";
 import Zerotier from "./managers/zerotier";
@@ -293,7 +293,7 @@ tryCatch(
             { value: "zerotier-network-id", label: "# Zerotier Network ID", blocked: true },
           ],
           {
-            title: "Settings",
+            title: `Settings (v${APP_VERSION})`,
             desc: "Change these on your own risk",
             lockable: true,
             action: { label: "□ Unlock", run: () => { } }

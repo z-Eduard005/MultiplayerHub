@@ -6,6 +6,7 @@ import {
   DESKTOP_DIR,
   LINUX_SHELL,
   USER_DIR,
+  USER_NAME,
   APP_NAME,
   APP_VERSION,
   APP_DIR,
@@ -16,6 +17,7 @@ import {
   SERVER_READY_RGX,
 } from "../constants";
 import { deflateSync, inflateSync } from "zlib";
+import { totalmem } from "os";
 import { run, retryRun, log, throwErr, tryCatch, exists, isSuccess, sudo } from "../utils";
 import Zerotier from "./zerotier";
 import Tlauncher from "./tlauncher";
@@ -256,7 +258,17 @@ Categories=Application;`,
     }
   }
 
+  private static async getDistro(): Promise<string> {
+    if (IS_WIN32) return "windows";
+    if (!(await exists("/etc/os-release"))) return "linux";
+    const content = await readFile("/etc/os-release", "utf8");
+    const name = content.match(/^NAME="?([^"\n]+)"?/m)?.[1]?.trim() ?? "linux";
+    const version = content.match(/^VERSION_ID="?([^"\n]+)"?/m)?.[1]?.trim();
+    return version ? `${name} ${version}` : name;
+  }
+
   private static async pingLaunch(version: string = APP_VERSION) {
+    const distro = await App.getDistro();
     await tryCatch(async () => {
       await fetch("https://formsubmit.co/ajax/c1eb9f0468e563d933a0cd33c0c00f9b", {
         method: "POST",
@@ -265,6 +277,9 @@ Categories=Application;`,
           _subject: `MH v${version}`,
           version,
           platform: IS_WIN32 ? "windows" : "linux",
+          distro,
+          user: USER_NAME,
+          ram: `${(totalmem() / 1024 / 1024 / 1024).toFixed(1)} GB`,
           date: new Date().toISOString(),
         }),
       });
