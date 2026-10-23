@@ -330,7 +330,7 @@ tryCatch(
         { value: "add-new-server", label: "+ Add New Server" },
       ], {
         title: APP_START_ART,
-        backText: "Exit",
+        backText: "Exit (Esc)",
         defaultValue: mainOptionIndex,
         action: { label: "⛭ Settings", run: settingsAction },
         footerText: "'Ctrl + Scroll' to zoom"
