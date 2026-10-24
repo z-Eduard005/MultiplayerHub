@@ -18,7 +18,7 @@ tryCatch(
     let mainOptionIndex = 0;
     const instanceError: { value: string | null } = { value: null };
 
-    const instanceUi = async (serverName: string) => {
+    const instanceUi = async (serverName: string, crumbPrefix: string = "Choose Server") => {
       while (true) {
         const inst = await App.getInstance(serverName);
         if (!inst) { instanceError.value = null; break; }
@@ -59,6 +59,7 @@ tryCatch(
           title: `${serverName.replace(/^0+/, "")} (${inst.version})`,
           desc,
           footerText,
+          backText: `Back (Esc) · /${crumbPrefix}/${serverName.replace(/^0+/, "")}`,
           ...(ready ? (isNotMine
             ? { lockable: true, action: { label: "□ Unlock", run: () => { } } }
             : {
@@ -87,7 +88,7 @@ tryCatch(
         const { value, cancelled } = await UI.list(items, opts);
 
         if (value === "continue-setup" && inst.state !== "ready") {
-          await finishInstanceSetup(serverName, inst.state, inst.version);
+          await finishInstanceSetup(serverName, inst.state, inst.version, crumbPrefix);
           instanceError.value = null;
           break;
         }
@@ -99,6 +100,7 @@ tryCatch(
           const { value: newRam, cancelled } = await UI.input({
             title: "Memory allocation",
             desc: `Enter amount of RAM in MB\nMinimum: ${Java.MIN_RAM_MB}MB | Maximum: ${Java.MAX_RAM_MB}MB`,
+            backText: `Back (Esc) · /${crumbPrefix}/${serverName.replace(/^0+/, "")}/Change Memory allocation`,
             defaultValue: String(inst?.ram ?? Java.getDefaultRam()),
             validate: (v) => {
               const n = Number(v);
@@ -130,6 +132,7 @@ tryCatch(
           const { value: newId, cancelled } = await UI.input({
             title: "# Zerotier Network ID",
             desc: `${inst.owner}'s Network ID`,
+            backText: `Back (Esc) · /${crumbPrefix}/${serverName.replace(/^0+/, "")}/Zerotier Network ID`,
             defaultValue: inst.zerotierID ?? "",
             filter: /[a-z0-9]/,
           });
@@ -144,6 +147,7 @@ tryCatch(
           const { value: confirm, cancelled } = await UI.input({
             title: `Are you sure you want to ${UI.textColor("DELETE", "error")} "${serverName.replace(/^0+/, "")}"?`,
             desc: "Type DELETE to confirm",
+            backText: `Back (Esc) · /${crumbPrefix}/${serverName.replace(/^0+/, "")}/Delete server`,
             maxLen: 50,
           });
           if (cancelled) continue;
@@ -173,6 +177,7 @@ tryCatch(
           const { value: confirm, cancelled } = await UI.input({
             title: `Are you sure you want to ${UI.textColor("RECREATE", "error")} world "${serverName.replace(/^0+/, "")}"?`,
             desc: "Type DELETE to confirm",
+            backText: `Back (Esc) · /${crumbPrefix}/${serverName.replace(/^0+/, "")}/Recreate world`,
             maxLen: 50,
           });
           if (cancelled) continue;
@@ -181,6 +186,7 @@ tryCatch(
           const { value: worldPath, cancelled: pathCancelled } = await UI.input({
             title: "New World",
             desc: "Path to existing world folder, or press Enter to skip",
+            backText: `Back (Esc) · /${crumbPrefix}/${serverName.replace(/^0+/, "")}/New World`,
             allowEmpty: true,
             validate: (p) => p && !existsSync(p) ? "Path does not exist" : null,
           });
@@ -194,7 +200,7 @@ tryCatch(
       }
     };
 
-    const initInstanceVersion = async (serverName: string, neededVersion: string): Promise<boolean> => {
+    const initInstanceVersion = async (serverName: string, neededVersion: string, crumb: string = "Continue Setup"): Promise<boolean> => {
       if ((await Tlauncher.installedVersions()).includes(neededVersion)) {
         await Tlauncher.setupServerVersion(neededVersion, serverName);
         return true;
@@ -206,6 +212,7 @@ tryCatch(
         const { value, cancelled } = await UI.list([{ value: "open-tlauncher", label: "> Open TLauncher" }], {
           title: "Waiting for version...",
           desc: `You need to install version "${neededVersion}" from TLauncher manually in order to play on this server`,
+          backText: `Back (Esc) · /${crumb}`,
           resolveOn: async () => {
             const installed = (await Tlauncher.installedVersions()).includes(neededVersion);
             return installed ? neededVersion : null;
@@ -225,11 +232,11 @@ tryCatch(
       }
     };
 
-    const finishInstanceSetup = async (serverName: string, state: "init" | "invited" | "installed", version: string) => {
+    const finishInstanceSetup = async (serverName: string, state: "init" | "invited" | "installed", version: string, crumbPrefix: string = "Choose Server") => {
       if (state === "invited") {
-        const installed = await initInstanceVersion(serverName, version);
+        const installed = await initInstanceVersion(serverName, version, "Continue Setup");
         if (installed) await App.updateInstance(serverName, { state: "ready" });
-        return instanceUi(serverName);
+        return instanceUi(serverName, crumbPrefix);
       }
 
       if (state === "init") {
@@ -241,7 +248,7 @@ tryCatch(
       await Git.initServer(serverName);
       await Git.initWorld(serverName, "");
       await App.updateInstance(serverName, { state: "ready" });
-      await instanceUi(serverName);
+      await instanceUi(serverName, crumbPrefix);
     };
 
     const chooseServerFlow = async () => {
@@ -264,7 +271,7 @@ tryCatch(
             }
             return item;
           }),
-          { title: "Choose Server", desc: "Select an instance to play on" }
+          { title: "Choose Server", desc: "Select an instance to play on", backText: "Back (Esc) · /Choose Server" }
         );
 
         if (cancelled) return;
@@ -295,6 +302,7 @@ tryCatch(
           {
             title: `Settings (v${APP_VERSION})`,
             desc: "Change these on your own risk",
+            backText: "Back (Esc) · /Settings",
             lockable: true,
             action: { label: "□ Unlock", run: () => { } }
           }
@@ -306,6 +314,7 @@ tryCatch(
           const { value: newId, cancelled: inputCancelled } = await UI.input({
             title: "# Zerotier Network ID",
             desc: `Your personal Network ID\nYou can get it from - ${Zerotier.ADMIN_URL}`,
+            backText: "Back (Esc) · /Settings/Zerotier Network ID",
             defaultValue: (config["zerotierID"] as string) ?? "",
             filter: /[a-z0-9]/
           });
@@ -359,6 +368,7 @@ tryCatch(
 
             const { value, cancelled } = await UI.input({
               title: `${UI.textColor("[1/3]:", "accent")} Server creation...`,
+              backText: "Back (Esc) · /Create Server",
               filter: /[a-z_-]/,
               desc: "Type a name for your server instance",
               defaultValue: serverName,
@@ -383,6 +393,7 @@ tryCatch(
 
             const { value, cancelled, index } = await UI.list(versionItems, {
               title: `${UI.textColor("[2/3]:", "accent")} Server creation...`,
+              backText: "Back (Esc) · /Create Server",
               desc: "Choose Minecraft version (install from tlauncher)\n\nNot Supported:\n- fabric below 1.14\n- forge above 1.13.2",
               refresh: () => getAvailableVersions(),
               action: {
@@ -412,6 +423,7 @@ tryCatch(
 
             const { value } = await UI.input({
               title: `${UI.textColor("[3/3]:", "accent")} Server creation...`,
+              backText: "Back (Esc) · /Create Server",
               desc: "Path to existing world folder, or press Enter to skip",
               allowEmpty: true,
               validate: (p) => p && !existsSync(p) ? "Path does not exist" : null,
@@ -438,7 +450,8 @@ tryCatch(
 
         const { value: invite, cancelled } = await UI.input({
           title: `Paste invite string (${IS_WIN32 ? "Ctrl+V" : "Ctrl+Shift+V"})`,
-          desc: "Ask the server creator for an invite string",
+          desc: "Ask the server owner for an invite string",
+          backText: "Back (Esc) · /Add New Server",
           maxLen: 2048,
           validate: (v: string) => {
             try {
@@ -456,7 +469,7 @@ tryCatch(
         const invitedName = await App.importInvite(invite);
         const invitedInst = await App.getInstance(invitedName);
 
-        const installed = await initInstanceVersion(invitedName, invitedInst!.version);
+        const installed = await initInstanceVersion(invitedName, invitedInst!.version, "Add New Server");
         if (installed) {
           await finishInstanceSetup(invitedName, "invited", invitedInst!.version);
         }

@@ -8,9 +8,9 @@
 
 Servers are created and played through the app: whoever comes online hosts it, the others join, and hosting moves along when someone leaves. So when you go to sleep, the server goes with the people still awake.
 
-<img src="assets/icon.png" alt="MultiplayerHub main menu" width="100%"/>
+<img src="assets/main.png" alt="MultiplayerHub main menu" width="100%"/>
 
-<img src="assets/icon.png" alt="MultiplayerHub instance view" width="32%"/> <img src="assets/icon.png" alt="MultiplayerHub server creation" width="32%"/> <img src="assets/icon.png" alt="MultiplayerHub settings" width="32%"/>
+<img src="assets/choose-server.png" alt="MultiplayerHub instance view" width="32%"/> <img src="assets/instanceUI.png" alt="MultiplayerHub server creation" width="32%"/> <img src="assets/create-server.png" alt="MultiplayerHub settings" width="32%"/>
 
 ![Release](https://img.shields.io/github/v/release/z-Eduard005/MultiplayerHub?label=version&color=green)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue)
