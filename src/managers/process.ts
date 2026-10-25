@@ -41,13 +41,13 @@ export default class Process {
       for (const pid of pids) {
         await run(IS_WIN32 ? `taskkill /F /PID ${pid} & ver>nul` : `kill -9 ${pid} || true`);
       }
-    }, "Failed to kill previous MultiplayerHub instance");
+    }, `Failed to kill previous ${APP_NAME} instance`);
   }
 
   private static async ensureAdmin() {
     const isAdmin = await isSuccess(async () => await run("net session"));
     if (isAdmin) return;
-    throwErr(`You don't have admin rights!\nPlease start the program with shortcut "${App.SHORTCUT_FILE}"`);
+    throwErr(`You don't have admin rights!\nPlease start the program as an admin or via shortcut\n"${App.SHORTCUT_FILE}"`);
   }
 
   static async init() {

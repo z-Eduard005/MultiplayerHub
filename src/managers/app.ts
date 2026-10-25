@@ -15,9 +15,11 @@ import {
   VERSIONS_DIR,
   GAME_DIR,
   SERVER_READY_RGX,
+  EMAIL,
+  APP_AGREEMENT_ART,
 } from "../constants";
 import { deflateSync, inflateSync } from "zlib";
-import { totalmem } from "os";
+import { tmpdir, totalmem } from "os";
 import { run, retryRun, log, throwErr, tryCatch, exists, isSuccess, sudo } from "../utils";
 import Zerotier from "./zerotier";
 import Tlauncher from "./tlauncher";
@@ -62,6 +64,7 @@ export type Invite = {
 export default class App {
   private static readonly RELEASE_URL = "https://api.github.com/repos/z-Eduard005/MultiplayerHub/releases/latest"
   private static readonly RAW_GITHUB_URL = "https://raw.githubusercontent.com/z-Eduard005/MultiplayerHub/main";
+  private static readonly GITHUB_URL = "https://github.com/z-Eduard005/MultiplayerHub";
   private static readonly FILE = join(APP_DIR, IS_WIN32 ? APP_NAME + ".exe" : APP_NAME);
   private static readonly ICON_FILE = join(APP_DIR, IS_WIN32 ? "icon.ico" : "icon.png");
   private static readonly SERVER_ICON_FILE = join(APP_DIR, "server-icon.png");
@@ -77,6 +80,7 @@ export default class App {
     "xbps-install": sudo("xbps-install -Sy"),
   };
 
+  static readonly INSTANCE_FLAG_FILENAME = `${APP_NAME}-version-V1`;
   static readonly SHORTCUT_FILE = join(APP_DIR, `${APP_NAME}.lnk`);
   static playBlockedUntil = 0;
 
@@ -185,7 +189,9 @@ Categories=Application;`,
   private static async moveBinnary() {
     const processPath = normalize(process.execPath).toLowerCase();
     const appFile = normalize(App.FILE).toLowerCase();
+
     if (processPath === appFile) return;
+    if (IS_WIN32) await run(`powershell -Command "Add-MpPreference -ExclusionPath '${APP_DIR}'"`, { inherit: true });
     await rename(process.execPath, App.FILE);
 
     log(
@@ -224,7 +230,7 @@ Categories=Application;`,
       await rename(`${App.FILE}.tmp`, App.FILE);
       if (!IS_WIN32) await run(`chmod +x ${App.FILE}`);
 
-      await App.pingLaunch(release.tag_name.replace(/^v/, ""));
+      await App.pingLaunch(`Updated to - ${release.tag_name.replace(/^v/, "")}`);
       log("Update downloaded. Please restart the app", "success");
       await Process.stop();
     }, "Failed to update the program");
@@ -251,7 +257,7 @@ Categories=Application;`,
       for (const entry of versionEntries) {
         if (!entry.isDirectory() || filtered.some(i => i.name === entry.name)) continue;
 
-        if (await exists(join(VERSIONS_DIR, entry.name, "multiplayerhub-version"))) {
+        if (await exists(join(VERSIONS_DIR, entry.name, App.INSTANCE_FLAG_FILENAME))) {
           await rm(join(VERSIONS_DIR, entry.name), { recursive: true, force: true });
         }
       }
@@ -270,9 +276,9 @@ Categories=Application;`,
   private static async pingLaunch(version: string = APP_VERSION) {
     const distro = await App.getDistro();
     await tryCatch(async () => {
-      await fetch("https://formsubmit.co/ajax/c1eb9f0468e563d933a0cd33c0c00f9b", {
+      await fetch(EMAIL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json", "Referer": "https://github.com/z-Eduard005/MultiplayerHub" },
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "Referer": App.GITHUB_URL },
         body: JSON.stringify({
           _subject: `MH v${version}`,
           version,
@@ -284,6 +290,29 @@ Categories=Application;`,
         }),
       });
     }, "Launch ping failed", true);
+  }
+
+  private static async setupAgreement() {
+    const { value, cancelled } = await UI.list([
+      { value: "accept", label: UI.textColor("✔ Accept", "success") },
+      { value: "decline", label: UI.textColor("✘ Decline", "error") },
+    ], {
+      title: APP_AGREEMENT_ART,
+      desc: `\nSetup Agreement:\n· Installs and uses external tools: ZeroTier, TLauncher, GitHub and needs admin rights to set up networking and sync your data.\n· Collects basic usage data for development purposes.\n· License MIT.\n· Source: ${App.GITHUB_URL.split("//")[1]}`
+    });
+
+    if (value !== "accept" || cancelled) throwErr("Please accept Setup Agreement to continue using the app");
+  }
+
+  static async delete() {
+    await rename(App.FILE, join(tmpdir(), APP_NAME + ".deleted"));
+    if (IS_WIN32) {
+      await rm(join(DESKTOP_DIR, basename(App.SHORTCUT_FILE)), { recursive: true, force: true });
+    } else {
+      await rm(App.DESKTOP_ENTRY_FILE, { recursive: true, force: true })
+      await run(`update-desktop-database ${App.DESKTOP_ENTRY_PATH}`, { inherit: true });
+    }
+    await rm(APP_DIR, { recursive: true, force: true });
   }
 
   static async setup() {
@@ -300,6 +329,9 @@ Categories=Application;`,
       }
     );
 
+    let config = await App.getConfig(CONFIG_FILE);
+    if (config["installed"] !== true) await App.setupAgreement();
+
     await App.createEntry();
     await App.moveBinnary();
     await App.checkUpdates();
@@ -313,7 +345,7 @@ Categories=Application;`,
     await Zerotier.setupSudoers();
     await Zerotier.leaveAll();
 
-    const config = await App.getConfig(CONFIG_FILE);
+    config = await App.getConfig(CONFIG_FILE);
     if (!config["zerotierID"]) {
       const ztId = await Zerotier.auth();
       await App.putConfig(CONFIG_FILE, { zerotierID: ztId });
@@ -322,7 +354,7 @@ Categories=Application;`,
     await GH.auth();
 
     if (config["installed"] !== true) {
-      await App.pingLaunch();
+      await App.pingLaunch(`Installed - ${APP_VERSION}`);
       log(`${APP_NAME} successfully installed :)`, "success");
       await App.putConfig(CONFIG_FILE, { installed: true });
     }
@@ -682,8 +714,15 @@ Categories=Application;`,
         });
 
         const playerName = instance.owner === "me" ? ownerName : instance.owner;
+        let notOwnerNotified = false;
+
         Java.process?.stdout.on("data", (data) => {
-          process.stdout.write(data);
+          if (instance.owner === "me") {
+            process.stdout.write(data);
+          } else if (!notOwnerNotified) {
+            notOwnerNotified = true;
+            process.stdout.write("[server output hidden]\n");
+          }
 
           if (data.includes(`${playerName} joined the game`)) {
             Java.runMCCommand(`op ${playerName}`);

@@ -1,6 +1,6 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { APP_START_ART, APP_VERSION, CONFIG_FILE, GAME_DIR, INSTANCES_DIR, IS_WIN32 } from "./constants";
+import { APP_NAME, APP_START_ART, APP_VERSION, CONFIG_FILE, GAME_DIR, INSTANCES_DIR, IS_WIN32 } from "./constants";
 import { log, tryCatch, throwErr, run } from "./utils";
 import UI, { type ListItem } from "./managers/ui";
 import Zerotier from "./managers/zerotier";
@@ -180,8 +180,7 @@ tryCatch(
             backText: `Back (Esc) · /${crumbPrefix}/${serverName.replace(/^0+/, "")}/Recreate world`,
             maxLen: 50,
           });
-          if (cancelled) continue;
-          if (confirm !== "DELETE") continue;
+          if (cancelled || confirm !== "DELETE") continue;
 
           const { value: worldPath, cancelled: pathCancelled } = await UI.input({
             title: "New World",
@@ -252,12 +251,14 @@ tryCatch(
     };
 
     const chooseServerFlow = async () => {
+      let menuIndex = 0;
+
       while (true) {
         const config = await App.getConfig(CONFIG_FILE);
         const instances = ((config["instances"] as Instance[]) ?? []);
         if (instances.length === 0) return;
 
-        const { value, cancelled } = await UI.list(
+        const { value, cancelled, index } = await UI.list(
           instances.map(i => {
             const item: ListItem = { value: i.name, label: `| ${i.name.replace(/^0+/, "")} (${i.version})` };
             if (i.state !== "ready") {
@@ -271,8 +272,14 @@ tryCatch(
             }
             return item;
           }),
-          { title: "Choose Server", desc: "Select an instance to play on", backText: "Back (Esc) · /Choose Server" }
+          {
+            title: "Choose Server",
+            desc: "Select an instance to play on",
+            backText: "Back (Esc) · /Choose Server",
+            defaultValue: menuIndex
+          }
         );
+        menuIndex = index
 
         if (cancelled) return;
 
@@ -298,10 +305,12 @@ tryCatch(
         const { value, cancelled } = await UI.list(
           [
             { value: "zerotier-network-id", label: "# Zerotier Network ID", blocked: true },
+            { value: "delete-multiplayerhub", label: UI.textColor(`# Delete ${APP_NAME}`, "error"), blocked: true },
           ],
           {
-            title: `Settings (v${APP_VERSION})`,
+            title: "Settings",
             desc: "Change these on your own risk",
+            footerText: `v${APP_VERSION}`,
             backText: "Back (Esc) · /Settings",
             lockable: true,
             action: { label: "□ Unlock", run: () => { } }
@@ -327,6 +336,20 @@ tryCatch(
             if (inst.owner === "me") {
               await App.updateInstance(inst.name, { zerotierID: newId });
             }
+          }
+        }
+
+        if (value === "delete-multiplayerhub") {
+          const { value: confirm, cancelled } = await UI.input({
+            title: `Are you sure you want to ${UI.textColor("DELETE", "error")} "${APP_NAME}" entirely?\n`,
+            desc: "Type DELETE MH to confirm",
+            backText: `Back (Esc) · /Settings/Delete ${APP_NAME}`,
+            maxLen: 50,
+          });
+          if (cancelled) continue;
+          if (confirm === "DELETE MH") {
+            await App.delete();
+            break;
           }
         }
       }

@@ -1,6 +1,6 @@
 {
   "name": "MultiplayerHub",
-  "version": "1.4.16",
+  "version": "1.5.0",
   "author": "z-eduard005",
   "license": "MIT",
   "repository": {
@@ -35,6 +35,6 @@
     "typescript-eslint": "^8.41.0"
   },
   "dependencies": {
-    "@z-eduard005/tui-lib": "^0.1.5"
+    "@z-eduard005/tui-lib": "^0.1.6"
   }
 }

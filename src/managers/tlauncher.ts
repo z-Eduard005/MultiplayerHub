@@ -1,14 +1,15 @@
 import { readFile, writeFile, readdir, cp, rename, rm } from "fs/promises";
 import { exists, run, log, throwErr, tryCatch } from "../utils"
 import { join, extname, resolve } from "path";
-import { IS_WIN32, LINUX_SHELL, MC_DIR, VERSIONS_DIR } from "../constants";
+import { APP_NAME, IS_WIN32, LINUX_SHELL, MC_DIR, VERSIONS_DIR } from "../constants";
 import UI from "./ui";
 import { spawn } from "child_process";
 import Process from "./process";
+import App from "./app";
 
 export default class Tlauncher {
   private static readonly PROPS_FILE = join(MC_DIR as string, "tl.properties");
-  private static readonly PROPS_VERSION_ENTRY = "multiplayerhub=V1";
+  private static readonly PROPS_VERSION_ENTRY = `${APP_NAME}=V1`;
   private static readonly FILENAME = IS_WIN32 ? "LL.exe" : "LL.sh";
   private static readonly FILE = join(MC_DIR as string, Tlauncher.FILENAME);
   private static readonly INSTALLER_URL = "https://dl.llaun.ch/legacy/installer";
@@ -183,7 +184,7 @@ export default class Tlauncher {
       }
       await writeFile(jsonFile, JSON.stringify(json, null, 2), "utf8");
 
-      await writeFile(join(dstDir, "multiplayerhub-version"), "", "utf8");
+      await writeFile(join(dstDir, App.INSTANCE_FLAG_FILENAME), "", "utf8");
       loader.stop();
     }, `Failed to setup server version for "${serverName}"`);
   }
