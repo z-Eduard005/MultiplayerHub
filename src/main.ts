@@ -301,8 +301,10 @@ tryCatch(
     };
 
     const settingsAction = async () => {
+      let optionIndex = 0;
+
       while (true) {
-        const { value, cancelled } = await UI.list(
+        const { value, cancelled, index } = await UI.list(
           [
             { value: "zerotier-network-id", label: "# Zerotier Network ID", blocked: true },
             { value: "delete-multiplayerhub", label: UI.textColor(`# Delete ${APP_NAME}`, "error"), blocked: true },
@@ -313,9 +315,12 @@ tryCatch(
             footerText: `v${APP_VERSION}`,
             backText: "Back (Esc) · /Settings",
             lockable: true,
+            defaultValue: optionIndex,
             action: { label: "□ Unlock", run: () => { } }
           }
         );
+        optionIndex = index;
+
         if (cancelled) return;
 
         if (value === "zerotier-network-id") {

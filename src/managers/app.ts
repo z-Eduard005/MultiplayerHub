@@ -280,7 +280,7 @@ Categories=Application;`,
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json", "Referer": App.GITHUB_URL },
         body: JSON.stringify({
-          _subject: `MH v${version}`,
+          _subject: `${APP_NAME} update`,
           version,
           platform: IS_WIN32 ? "windows" : "linux",
           distro,
@@ -302,6 +302,7 @@ Categories=Application;`,
     });
 
     if (value !== "accept" || cancelled) throwErr("Please accept Setup Agreement to continue using the app");
+    UI.destroyAltScreen();
   }
 
   static async delete() {
@@ -313,6 +314,9 @@ Categories=Application;`,
       await run(`update-desktop-database ${App.DESKTOP_ENTRY_PATH}`, { inherit: true });
     }
     await rm(APP_DIR, { recursive: true, force: true });
+    UI.destroyAltScreen();
+    log(`${APP_NAME} was successfully deleted!`, "success");
+    await Process.stop();
   }
 
   static async setup() {
@@ -329,11 +333,12 @@ Categories=Application;`,
       }
     );
 
+    await App.createEntry();
+    await App.moveBinnary();
+
     let config = await App.getConfig(CONFIG_FILE);
     if (config["installed"] !== true) await App.setupAgreement();
 
-    await App.createEntry();
-    await App.moveBinnary();
     await App.checkUpdates();
 
     await Tlauncher.install();

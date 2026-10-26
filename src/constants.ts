@@ -43,7 +43,7 @@ export const MC_DIR = IS_WIN32
 export const EMAIL = "https://formsubmit.co/ajax/c1eb9f0468e563d933a0cd33c0c00f9b";
 export const GAME_DIR = join(MC_DIR as string, "game");
 export const DESKTOP_DIR = join(USER_DIR, "Desktop");
-export const APP_VERSION = "1.5.0";
+export const APP_VERSION = "1.6.0";
 export const APP_NAME = "MultiplayerHub";
 export const APP_DIR = IS_WIN32
   ? join(USER_DIR, "AppData", "Roaming", APP_NAME)

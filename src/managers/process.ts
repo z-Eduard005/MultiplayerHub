@@ -47,7 +47,7 @@ export default class Process {
   private static async ensureAdmin() {
     const isAdmin = await isSuccess(async () => await run("net session"));
     if (isAdmin) return;
-    throwErr(`You don't have admin rights!\nPlease start the program as an admin or via shortcut\n"${App.SHORTCUT_FILE}"`);
+    throwErr(`You don't have admin rights!\nPlease start the program as an admin or via shortcut:\n"${App.SHORTCUT_FILE}"`);
   }
 
   static async init() {

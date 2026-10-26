@@ -45,7 +45,7 @@ export default class GH {
         true
       );
     } else {
-      App.pmInstall(GH.GIT_PACKAGES as Record<string, string>);
+      await App.pmInstall(GH.GIT_PACKAGES as Record<string, string>);
     }
   }
 

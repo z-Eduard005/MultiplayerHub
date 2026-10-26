@@ -1,6 +1,6 @@
 {
   "name": "MultiplayerHub",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "author": "z-eduard005",
   "license": "MIT",
   "repository": {
@@ -21,7 +21,7 @@
     "pkg-handle": "pkg build/main.js -o build/MultiplayerHub.exe -t node18-win-x64 && node scripts/set-win-icon.js && pkg build/main.js -o build/MultiplayerHub -t node18-linux-x64 && chmod +x build/MultiplayerHub",
     "build": "npm run ts-handle && npm run pkg-handle",
     "release": "node scripts/bump-version.js && npm run build && node scripts/release.js",
-    "test": "npm run build && cp build/MultiplayerHub ~/Downloads/MultiplayerHub && echo '\r' | ~/Downloads/MultiplayerHub && xdg-terminal-exec ~/.MultiplayerHub/MultiplayerHub"
+    "test": "npm run build && cp build/MultiplayerHub ~/.MultiplayerHub/MultiplayerHub && xdg-terminal-exec ~/.MultiplayerHub/MultiplayerHub && echo -e '\n✔ TESTED'"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
