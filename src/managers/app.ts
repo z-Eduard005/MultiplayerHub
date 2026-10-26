@@ -83,6 +83,7 @@ export default class App {
   static readonly INSTANCE_FLAG_FILENAME = `${APP_NAME}-version-V1`;
   static readonly SHORTCUT_FILE = join(APP_DIR, `${APP_NAME}.lnk`);
   static playBlockedUntil = 0;
+  static runningInstance: { name: string; networkId: string } | null = null;
 
   static isPlayBlocked(instanceError: { value: string | null }): boolean {
     if (Date.now() >= App.playBlockedUntil) return false;
@@ -629,6 +630,7 @@ Categories=Application;`,
   }
 
   static async closeInstance(name: string, networkId: string) {
+    App.runningInstance = null;
     UI.stopBadge();
     await Java.kill();
     Git.worldDisableRepeatedPush();
@@ -658,6 +660,7 @@ Categories=Application;`,
     const instance = instances.find(i => i.name === serverName);
     if (!instance) return;
     const ztNetworkId = instance.zerotierID ?? config["zerotierID"] as string;
+    App.runningInstance = { name: serverName, networkId: ztNetworkId };
 
     await tryCatch(async () => {
       const ram = instance.ram ?? Java.getDefaultRam();

@@ -1,6 +1,6 @@
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
-import { homedir } from "os";
+import { homedir, tmpdir } from "os";
 
 export const IS_WIN32 = process.platform === "win32";
 export const LINUX_SHELL = "/bin/bash";
@@ -22,6 +22,15 @@ export const PFX_FLAG_FILE = join(
   ".pfx-created"
 );
 
+export const EMAIL = "https://formsubmit.co/ajax/c1eb9f0468e563d933a0cd33c0c00f9b";
+export const APP_VERSION = "1.6.0";
+export const APP_NAME = "MultiplayerHub";
+export const APP_DIR = IS_WIN32
+  ? join(USER_DIR, "AppData", "Roaming", APP_NAME)
+  : join(USER_DIR, `.${APP_NAME}`);
+
+export const MC_DIR_ERROR_PATH = join(tmpdir(), `${APP_NAME}-MC_DIR_ERROR_PATH`);
+
 export const MC_DIR = IS_WIN32
   ? join(USER_DIR, MC_REL_PATH)
   : existsSync(PFX_FLAG_FILE)
@@ -38,16 +47,10 @@ export const MC_DIR = IS_WIN32
       "steamuser",
       MC_REL_PATH
     )
-    : null
+    : MC_DIR_ERROR_PATH;
 
-export const EMAIL = "https://formsubmit.co/ajax/c1eb9f0468e563d933a0cd33c0c00f9b";
-export const GAME_DIR = join(MC_DIR as string, "game");
+export const GAME_DIR = join(MC_DIR, "game");
 export const DESKTOP_DIR = join(USER_DIR, "Desktop");
-export const APP_VERSION = "1.6.0";
-export const APP_NAME = "MultiplayerHub";
-export const APP_DIR = IS_WIN32
-  ? join(USER_DIR, "AppData", "Roaming", APP_NAME)
-  : join(USER_DIR, `.${APP_NAME}`);
 export const INSTANCES_DIR = join(APP_DIR, "instances");
 export const CONFIG_FILE = join(APP_DIR, ".config");
 export const VERSIONS_DIR = join(GAME_DIR, "versions");

@@ -96,9 +96,13 @@ export default class Process {
     UI.destroyAltScreen();
     UI.stopBadge();
 
-    await Java.kill();
-    Git.worldDisableRepeatedPush();
-    await Hosting.close();
+    if (App.runningInstance) {
+      await App.closeInstance(App.runningInstance.name, App.runningInstance.networkId);
+    } else {
+      await Java.kill();
+      Git.worldDisableRepeatedPush();
+      await Hosting.close();
+    }
     Logger.restore();
 
     await Process.pause();

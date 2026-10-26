@@ -1,7 +1,7 @@
 import { readFile, writeFile, readdir, cp, rename, rm } from "fs/promises";
 import { exists, run, log, throwErr, tryCatch } from "../utils"
 import { join, extname, resolve } from "path";
-import { APP_NAME, IS_WIN32, LINUX_SHELL, MC_DIR, VERSIONS_DIR } from "../constants";
+import { APP_NAME, IS_WIN32, LINUX_SHELL, MC_DIR, MC_DIR_ERROR_PATH, VERSIONS_DIR } from "../constants";
 import UI from "./ui";
 import { spawn } from "child_process";
 import Process from "./process";
@@ -119,11 +119,14 @@ export default class Tlauncher {
   }
 
   static async install() {
-    if (!MC_DIR) return throwErr("TLauncher location is not resolved: missing Proton prefix");
-    if (await exists(MC_DIR)) return;
-    if (await exists(resolve(MC_DIR, "..")) || await exists(resolve(MC_DIR, "..", ".."))) {
-      throwErr(`Your tlauncher folder already exists!\nPlease delete it in order to install the program:\n${resolve(MC_DIR, "..", "..")}`)
-    }
+    const IS_VALID_MC_PATH = MC_DIR !== MC_DIR_ERROR_PATH; // error path apears when steam-proton setup doesnt have PFX_FLAG_FILE
+    const PARENT_MC_DIRS_EXISTS = await exists(resolve(MC_DIR, "..")) || await exists(resolve(MC_DIR, "..", ".."));
+
+    if (!await exists(MC_DIR)) {
+      if (IS_VALID_MC_PATH && PARENT_MC_DIRS_EXISTS) {
+        throwErr(`Your tlauncher installed incorectly!\nPlease delete it in order to install the program:\n${resolve(MC_DIR, "..", "..")}`);
+      }
+    } else if (IS_VALID_MC_PATH) return;
 
     log(
       `This server works only with legacy-launcher${IS_WIN32 ? "\nInstall tlauncher first (from opening link) and try later..." : ` and steam-proton setup\nInstalling using script:\n'${Tlauncher.LINUX_MC_INSTALLER_URL}'`}`, "warning"
