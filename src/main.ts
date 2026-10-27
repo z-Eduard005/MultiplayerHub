@@ -415,7 +415,7 @@ tryCatch(
           }
           if (step === 2) {
             const getAvailableVersions = async () => {
-              return (await Tlauncher.installedVersions(existing.map(i => i.name))).map(Java.toVersionOption)
+              return (await Tlauncher.installedVersions(existing.map(i => i.name))).map(Java.toVersionOption).filter(o => o !== null);
             }
             const versionItems = await getAvailableVersions();
 

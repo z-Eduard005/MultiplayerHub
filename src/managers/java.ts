@@ -178,10 +178,10 @@ export default class Java {
     return false;
   }
 
-  static toVersionOption(version: string): ListItem {
+  static toVersionOption(version: string): ListItem | null {
     return Java.isSupportedVersion(version)
       ? { value: version, label: version }
-      : { value: version, label: version, badge: "Not Supported", badgeColor: "red", blocked: true };
+      : null
   }
 
   private static javaVersion(input: string) {
