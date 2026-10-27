@@ -119,12 +119,12 @@ export default class Tlauncher {
   }
 
   static async install() {
-    const IS_VALID_MC_PATH = MC_DIR !== MC_DIR_ERROR_PATH; // error path apears when steam-proton setup doesnt have PFX_FLAG_FILE
+    const IS_VALID_MC_PATH = MC_DIR !== MC_DIR_ERROR_PATH; // error path appears when steam-proton setup doesnt have PFX_FLAG_FILE
     const PARENT_MC_DIRS_EXISTS = await exists(resolve(MC_DIR, "..")) || await exists(resolve(MC_DIR, "..", ".."));
 
     if (!await exists(MC_DIR)) {
       if (IS_VALID_MC_PATH && PARENT_MC_DIRS_EXISTS) {
-        throwErr(`Your tlauncher installed incorectly!\nPlease delete it in order to install the program:\n${resolve(MC_DIR, "..", "..")}`);
+        throwErr(`Your tlauncher installed incorrectly!\nPlease delete it in order to install the program:\n${resolve(MC_DIR, "..", "..")}`);
       }
     } else if (IS_VALID_MC_PATH) return;
 

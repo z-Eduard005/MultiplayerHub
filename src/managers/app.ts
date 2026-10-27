@@ -313,6 +313,14 @@ Categories=Application;`,
   }
 
   static async delete() {
+    const config = await App.getConfig(CONFIG_FILE);
+    const instances = (config["instances"] as Instance[]) ?? [];
+
+    for (const inst of instances) {
+      await rm(join(GAME_DIR, "home", inst.name), { recursive: true, force: true });
+      await rm(join(VERSIONS_DIR, inst.name), { recursive: true, force: true });
+    }
+
     await rename(App.FILE, join(tmpdir(), APP_NAME + ".deleted"));
     if (IS_WIN32) {
       await rm(join(DESKTOP_DIR, basename(App.SHORTCUT_FILE)), { recursive: true, force: true });

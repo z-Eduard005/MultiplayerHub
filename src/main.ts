@@ -25,7 +25,7 @@ tryCatch(
 
         const ready = inst.state === "ready";
         const desc = !ready
-          ? `\n${UI.textColor("Setup incomplete", "warning")}`
+          ? `${UI.textColor("Setup incomplete", "warning")}`
           : inst.owner !== "me"
             ? `\nOwner: ${inst.owner}`
             : `For client-side mods & configs use:\n${join(".tlauncher", "legacy", "Minecraft", "game", "home", serverName)}`
@@ -346,7 +346,7 @@ tryCatch(
 
         if (value === "delete-multiplayerhub") {
           const { value: confirm, cancelled } = await UI.input({
-            title: `Are you sure you want to ${UI.textColor("DELETE", "error")} "${APP_NAME}" entirely?\n`,
+            title: `Are you sure you want to ${UI.textColor("DELETE", "error")} "${APP_NAME}" entirely!?`,
             desc: "Type DELETE MH to confirm",
             backText: `Back (Esc) · /Settings/Delete ${APP_NAME}`,
             maxLen: 50,
