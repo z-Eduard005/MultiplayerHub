@@ -55,7 +55,7 @@ export const INSTANCES_DIR = join(APP_DIR, "instances");
 export const CONFIG_FILE = join(APP_DIR, ".config");
 export const VERSIONS_DIR = join(GAME_DIR, "versions");
 export const SERVER_READY_RGX = /Done \(\d+\.\d+s\)!/;
-export const APP_START_ART = `
+export const START_ART = `
 ╔═╦═╗     ╗  ╦        ╗                 ╦  ╦     ╦  
 ║ ║ ║     ║  ║  o     ║                 ║  ║     ║  
 ║ ║ ║ ╦ ╦ ║ ═╬═ ╦ ╔═╗ ║ ╔═╗ ╦ ╦ ╔═╗ ╦═╗ ╠══╣ ╦ ╦ ╠═╗
@@ -63,7 +63,8 @@ export const APP_START_ART = `
 ╩ ╩ ╩ ╚═╝ ╩  ╚╝ ╩ ╠═╝ ╩ ╚═╚ ╚═╣ ╚═╝ ╩   ╩  ╩ ╚═╝ ╚═╝
                   ║           ║                     
                   ╩         ╚═╝                     `;
-export const APP_AGREEMENT_ART = `
+
+export const AGREEMENT_ART = `
 ╭────────────╮
 │ ╔═╦═╗ ╦  ╦ │
 │ ║ ║ ║ ║  ║ │
@@ -71,3 +72,9 @@ export const APP_AGREEMENT_ART = `
 │ ║ ║ ║ ║  ║ │
 │ ╩ ╩ ╩ ╩  ╩ │
 ╰────────────╯`;
+
+export const MC_GRASS_LINE_ART = `
+              ╔══╗                             
+  ╔══╗        ║  ║  ╔══╗           ╔══╗     ╔══
+══╝  ╚═════╗  ║  ╚══╝  ║  ╔══╗  ╔══╝  ╚═════╝  
+           ╚══╝        ╚══╝  ╚══╝              `;

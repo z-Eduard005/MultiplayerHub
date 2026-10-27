@@ -16,7 +16,7 @@ import {
   GAME_DIR,
   SERVER_READY_RGX,
   EMAIL,
-  APP_AGREEMENT_ART,
+  AGREEMENT_ART,
 } from "../constants";
 import { deflateSync, inflateSync } from "zlib";
 import { tmpdir, totalmem } from "os";
@@ -80,6 +80,7 @@ export default class App {
     "xbps-install": sudo("xbps-install -Sy"),
   };
 
+  private static configQueue: Promise<void> = Promise.resolve();
   static readonly INSTANCE_FLAG_FILENAME = `${APP_NAME}-version-V1`;
   static readonly SHORTCUT_FILE = join(APP_DIR, `${APP_NAME}.lnk`);
   static playBlockedUntil = 0;
@@ -106,12 +107,17 @@ export default class App {
     }, `Failed to read config file: ${file}`);
   }
 
-  static async putConfig(file: string, data: Record<string, unknown>) {
-    const existing = await App.getConfig(file);
-    await tryCatch(
-      () => writeFile(file, App.encode({ ...existing, ...data })),
-      `Failed to write config file: ${file}`
-    );
+  static putConfig(file: string, data: Record<string, unknown>): Promise<void> {
+    const task = App.configQueue.then(async () => {
+      const existing = await App.getConfig(file);
+      await tryCatch(async () => {
+        const tmp = `${file}.${process.pid}.tmp`;
+        await writeFile(tmp, App.encode({ ...existing, ...data }));
+        await rename(tmp, file);
+      }, `Failed to write config file: ${file}`);
+    });
+    App.configQueue = task.catch(() => { });
+    return task;
   }
 
   private static async detectDriPrime(): Promise<string> {
@@ -298,7 +304,7 @@ Categories=Application;`,
       { value: "accept", label: UI.textColor("✔ Accept", "success") },
       { value: "decline", label: UI.textColor("✘ Decline", "error") },
     ], {
-      title: APP_AGREEMENT_ART,
+      title: AGREEMENT_ART,
       desc: `\nSetup Agreement:\n· Installs and uses external tools: ZeroTier, TLauncher, GitHub and needs admin rights to set up networking and sync your data.\n· Collects basic usage data for development purposes.\n· License MIT.\n· Source: ${App.GITHUB_URL.split("//")[1]}`
     });
 
@@ -683,10 +689,10 @@ Categories=Application;`,
       const ownerName = await Tlauncher.getAccountName();
       Hosting.nickName = ownerName;
 
-      await Hosting.startMonitoring(instance, closeFlag, (owner) => {
+      await Hosting.startMonitoring(instance, closeFlag, async (owner) => {
         const patch: Partial<Instance> = {};
         if (instance.owner !== "me" && instance.owner !== null) patch.owner = owner;
-        App.updateInstance(serverName, patch);
+        await App.updateInstance(serverName, patch);
       });
 
       if (closeFlag.value) {

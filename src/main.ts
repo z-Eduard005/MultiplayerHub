@@ -1,6 +1,6 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { APP_NAME, APP_START_ART, APP_VERSION, CONFIG_FILE, GAME_DIR, INSTANCES_DIR, IS_WIN32 } from "./constants";
+import { APP_NAME, START_ART, APP_VERSION, CONFIG_FILE, GAME_DIR, INSTANCES_DIR, IS_WIN32 } from "./constants";
 import { log, tryCatch, throwErr, run } from "./utils";
 import UI, { type ListItem } from "./managers/ui";
 import Zerotier from "./managers/zerotier";
@@ -366,7 +366,7 @@ tryCatch(
         { value: "create-server", label: "> Create Server" },
         { value: "add-new-server", label: "+ Add New Server" },
       ], {
-        title: APP_START_ART,
+        title: START_ART,
         backText: "Exit (Esc)",
         defaultValue: mainOptionIndex,
         action: { label: "⛭ Settings", run: settingsAction },

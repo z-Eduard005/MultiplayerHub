@@ -46,7 +46,7 @@ export default class Hosting {
   static startMonitoring(
     instance: Instance,
     closeFlag: { value: boolean },
-    onUpdate: (owner: string) => void
+    onUpdate: (owner: string) => Promise<void>
   ): Promise<void> {
     return new Promise(async (resolve) => {
       Hosting.resolve = resolve;
@@ -114,10 +114,10 @@ export default class Hosting {
     });
   }
 
-  private static async handleHostMessage(msg: BroadcastData, instance: Instance, onUpdate: (owner: string) => void) {
+  private static async handleHostMessage(msg: BroadcastData, instance: Instance, onUpdate: (owner: string) => Promise<void>) {
     if (Hosting.nickName !== msg.nickName) {
       Hosting.nickName = msg.nickName;
-      if (msg.nickName) onUpdate(msg.nickName);
+      if (msg.nickName) await onUpdate(msg.nickName);
     }
 
     if (Hosting.state === "LOOKING") {
