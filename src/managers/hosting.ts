@@ -33,6 +33,7 @@ export default class Hosting {
   private static heartbeatWindow: boolean[] = [];
   private static heartbeatArrived = false;
   private static takeoverInProgress = false;
+  private static confirmed = false;
   private static whoisProbeActive = false;
   private static probeAttempts = 0;
   private static probeSpinner: { stop: () => void } | null = null;
@@ -52,6 +53,7 @@ export default class Hosting {
       Hosting.resolve = resolve;
       Hosting.state = "LOOKING";
       Hosting.closed = false;
+      Hosting.confirmed = false;
       Hosting.closeFlag = closeFlag;
       Hosting.closeReason = null;
       Hosting.whoisProbeActive = false;
@@ -150,11 +152,32 @@ export default class Hosting {
       return;
     }
 
+    if (Hosting.state === "FOLLOWING" && Hosting.ip !== msg.ip) {
+      if (!Hosting.takeoverInProgress) return;
+      Hosting.ip = msg.ip;
+      Hosting.whoisProbeActive = false;
+      clearTimeout(Hosting.probeTimer);
+
+      const fullIP = `${msg.ip}:${Java.PORT}`;
+      log(`Reconnecting to new host on ${fullIP}`, "info");
+      await Minecraft.addServer(fullIP, instance.name);
+      Hosting.startHeartbeatCheck();
+      Hosting.heartbeatArrived = true;
+      Hosting.continueMonitoring(instance);
+      return;
+    }
+
     if (Hosting.state === "HOSTING" && Zerotier.ipToInt(msg.ip) < Zerotier.ipToInt(Zerotier.ip!)) {
       clearInterval(Hosting.heartBeatTimer);
       clearTimeout(Hosting.confirmTimer);
       Hosting.state = "FOLLOWING";
       Hosting.ip = msg.ip;
+      if (Hosting.confirmed) {
+        Hosting.closeReason = "Divergence detected, instance closed without saving!";
+        Hosting.cleanup();
+        Hosting.closeFlag.value = true;
+        return;
+      }
       Hosting.whoisProbeActive = false;
       clearTimeout(Hosting.probeTimer);
 
@@ -209,30 +232,32 @@ export default class Hosting {
     Hosting.probeSpinner?.stop();
     Hosting.probeSpinner = null;
 
+    const sendHeartbeat = async () => await tryCatch(
+      () => new Promise<void>((resolve, reject) => {
+        const heartbeat = instance.owner === "me"
+          ? { type: "HEARTBEAT", ip: Zerotier.ip, nickName: Hosting.nickName, instanceId: instance.id }
+          : { type: "HEARTBEAT", ip: Zerotier.ip, instanceId: instance.id };
+        Hosting.socket.send(
+          Buffer.from(JSON.stringify(heartbeat)),
+          Hosting.BROADCAST_PORT,
+          Zerotier.broadcastIP!,
+          (err) => err ? reject(err) : resolve()
+        );
+      }),
+      (err) => {
+        Hosting.closeReason = `Heartbeat broadcast failed (bad connection)\n${err}`;
+        Hosting.cleanup();
+        Hosting.closeFlag.value = true;
+        Hosting.resolve();
+      },
+    );
+
     clearInterval(Hosting.heartBeatTimer);
-    Hosting.heartBeatTimer = setInterval(async () => {
-      await tryCatch(
-        () => new Promise<void>((resolve, reject) => {
-          const heartbeat = instance.owner === "me"
-            ? { type: "HEARTBEAT", ip: Zerotier.ip, nickName: Hosting.nickName, instanceId: instance.id }
-            : { type: "HEARTBEAT", ip: Zerotier.ip, instanceId: instance.id };
-          Hosting.socket.send(
-            Buffer.from(JSON.stringify(heartbeat)),
-            Hosting.BROADCAST_PORT,
-            Zerotier.broadcastIP!,
-            (err) => err ? reject(err) : resolve()
-          );
-        }),
-        (err) => {
-          Hosting.closeReason = `Heartbeat broadcast failed (bad connection)\n${err}`;
-          Hosting.cleanup();
-          Hosting.closeFlag.value = true;
-          Hosting.resolve();
-        },
-      );
-    }, Hosting.HEARTBEAT_INTERVAL);
+    sendHeartbeat();
+    Hosting.heartBeatTimer = setInterval(sendHeartbeat, Hosting.HEARTBEAT_INTERVAL);
 
     Hosting.confirmTimer = setTimeout(async () => {
+      Hosting.confirmed = true;
       log("Wait, you will be the host now...", "info");
       await Minecraft.addServer(`${Zerotier.ip}:${Java.PORT}`, instance.name);
       Hosting.resolve();

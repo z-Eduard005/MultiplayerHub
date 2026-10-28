@@ -760,7 +760,10 @@ Categories=Application;`,
       });
 
       clearInterval(closePoll);
-      if (closeFlag.value) await App.closeInstance(serverName, ztNetworkId);
+      if (closeFlag.value) {
+        if (Hosting.closeReason) instanceError.value = Hosting.closeReason;
+        await App.closeInstance(serverName, ztNetworkId);
+      }
     }, async (err) => {
       instanceError.value = err;
       await App.closeInstance(serverName, ztNetworkId);
