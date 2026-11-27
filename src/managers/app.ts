@@ -158,7 +158,7 @@ echo "$(detect_dri_prime)"`
 
       if (IS_WIN32) {
         await retryRun(async () => {
-          await run(`schtasks /delete /tn "${APP_NAME}Task" /f || ver>nul`);
+          // await run(`schtasks /delete /tn "${APP_NAME}Task" /f || ver>nul`);
           await run(`schtasks /create /tn "${APP_NAME}Task" /tr "${App.FILE}" /sc ONCE /sd 01/01/2000 /st 00:00 /rl HIGHEST /it /f`);
         });
 
