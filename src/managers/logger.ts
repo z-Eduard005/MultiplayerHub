@@ -80,7 +80,7 @@ export default class Logger {
       withTime.sort((a, b) => a.mtime - b.mtime);
       while (withTime.length >= Logger.KEEP) {
         const oldest = withTime.shift();
-        if (oldest) await rm(join(Logger.DIR, oldest.e), { force: true });
+        if (oldest) await rm(join(Logger.DIR, oldest.e), { force: true }).catch(() => undefined);
       }
       const stamp = (await Logger.systemTimestamp()) ?? Logger.dateTimestamp();
       Logger.file = join(Logger.DIR, `${stamp}.log`);

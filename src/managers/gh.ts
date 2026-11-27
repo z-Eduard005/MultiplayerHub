@@ -40,7 +40,7 @@ export default class GH {
       }
 
       await tryCatch(
-        () => run(`winget install ${(GH.GIT_PACKAGES as string[]).join(" ")} --accept-source-agreements --accept-package-agreements`, { inherit: true }),
+        async () => await run(`winget install ${(GH.GIT_PACKAGES as string[]).join(" ")} --accept-source-agreements --accept-package-agreements`, { inherit: true }),
         "Git packages are not installed, this might have happened earlier",
         true
       );

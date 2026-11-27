@@ -7,6 +7,8 @@ import { networkInterfaces, tmpdir } from "os";
 import UI from "./ui";
 import App from "./app";
 
+type ZtNet = { nwid: string };
+
 export default class Zerotier {
   static readonly ADMIN_URL = "https://central.zerotier.com";
   private static readonly NEW_ORG_URL = `${Zerotier.ADMIN_URL}/org/new`;
@@ -94,7 +96,6 @@ export default class Zerotier {
     );
     if (!out) return;
 
-    type ZtNet = { nwid: string };
     const networks: ZtNet[] = JSON.parse(out);
     for (const net of networks) {
       await Zerotier.leave(net.nwid);

@@ -156,25 +156,31 @@ echo "$(detect_dri_prime)"`
         }
       }
 
-      if (IS_WIN32 && !(await exists(App.SHORTCUT_FILE))) {
+      if (IS_WIN32) {
         await retryRun(async () => {
-          await run(`schtasks /create /tn "${APP_NAME}Task" /tr "${App.FILE}" /sc ONCE /sd 01/01/2000 /st 00:00 /rl HIGHEST /f`);
-          await run(
-            `powershell -Command "${`
-            $WshShell = New-Object -ComObject WScript.Shell
-            $Shortcut = $WshShell.CreateShortcut('${App.SHORTCUT_FILE}')
-            $Shortcut.TargetPath = 'schtasks'
-            $Shortcut.Arguments = '/run /tn "${APP_NAME}Task"'
-            $Shortcut.WorkingDirectory = '${APP_DIR}'
-            $Shortcut.IconLocation = '${App.ICON_FILE},0'
-            $Shortcut.Description = '${APP_NAME}'
-            $Shortcut.Save()`.replace(/\n/g, "; ")}"`,
-            { inherit: true }
-          );
+          await run(`schtasks /delete /tn "${APP_NAME}Task" /f || ver>nul`);
+          await run(`schtasks /create /tn "${APP_NAME}Task" /tr "${App.FILE}" /sc ONCE /sd 01/01/2000 /st 00:00 /rl HIGHEST /it /f`);
         });
 
-        await copyFile(App.SHORTCUT_FILE, join(DESKTOP_DIR, basename(App.SHORTCUT_FILE)));
-      } else if (!IS_WIN32) {
+        if (!(await exists(App.SHORTCUT_FILE))) {
+          await retryRun(async () => {
+            await run(
+              `powershell -Command "${`
+              $WshShell = New-Object -ComObject WScript.Shell
+              $Shortcut = $WshShell.CreateShortcut('${App.SHORTCUT_FILE}')
+              $Shortcut.TargetPath = 'schtasks'
+              $Shortcut.Arguments = '/run /tn "${APP_NAME}Task"'
+              $Shortcut.WorkingDirectory = '${APP_DIR}'
+              $Shortcut.IconLocation = '${App.ICON_FILE},0'
+              $Shortcut.Description = '${APP_NAME}'
+              $Shortcut.Save()`.replace(/\n/g, "; ")}"`,
+              { inherit: true }
+            );
+          });
+
+          await copyFile(App.SHORTCUT_FILE, join(DESKTOP_DIR, basename(App.SHORTCUT_FILE)));
+        }
+      } else {
         const driPrime = await App.detectDriPrime();
 
         await writeFile(
