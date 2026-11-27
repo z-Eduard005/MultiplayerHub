@@ -358,7 +358,7 @@ Categories=Application;`,
     await App.moveBinnary();
 
     let config = await App.getConfig(CONFIG_FILE);
-    if (config["installed"] !== true) await App.setupAgreement();
+    // if (config["installed"] !== true) await App.setupAgreement();
 
     await App.checkUpdates();
 
